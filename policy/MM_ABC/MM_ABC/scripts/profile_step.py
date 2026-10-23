@@ -52,8 +52,8 @@ class _Scope:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="configs/model/mmabc_4b_mobile.yaml")
-    ap.add_argument("--mixture", default="configs/mixture/mobile_all.yaml")
+    ap.add_argument("--model", default="configs/model/mmabc_4b_miverse.yaml")
+    ap.add_argument("--mixture", default="configs/mixture/miverse_all.yaml")
     ap.add_argument("--micro-batch", type=int, default=8)
     ap.add_argument("--steps", type=int, default=4)
     args = ap.parse_args()

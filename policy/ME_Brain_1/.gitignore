@@ -1,5 +1,0 @@
-# Keep local upstream checkouts and generated training artifacts out of submissions.
-/Focus-VLWA/
-/focus-vlwa/
-/data/
-/results/

@@ -25,24 +25,28 @@ The script installs this local package and XPolicyLab. Download Qwen3-VL-4B-Inst
 assets separately, including weights, configuration, tokenizer, processor and chat
 template. Set `MOPA_BASE_VLM` to their local directory. No weights or datasets are
 included in this adapter.
+The XPolicyLab entry points import this directory's `mopa` package explicitly;
+they do not use a different editable installation from another checkout.
 
 ## Data Processing
 
 ```bash
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> joint [expert_data_num] [options]
 
-bash process_data.sh "$BENCH_NAME" mobile_run m92uw joint \
-  --source /path/to/hdf5_episodes
+export MIVERSE_DATASET=/path/to/MiVerse/data/MiVerse
+bash process_data.sh MiVerse mopa miverse joint
 ```
 
 Only `joint` actions are supported. For generic robots, dimensions come from
 XPolicyLab's shared robot helper. The default input is
-`<workspace>/data/<bench_name>/<ckpt_name>/<env_cfg_type>/data`; override it with
-`--source` or `SOURCE_DATA`. The default output is
+`<workspace>/data/<bench_name>/<ckpt_name>/<env_cfg_type>/data`. For `MiVerse` or
+`MiVerse_depth`, it is instead `MIVERSE_DATASET`, falling back to
+`<workspace>/dataset/MiVerse/data/MiVerse`. `--source` or `SOURCE_DATA` takes
+priority over either default. The default output is
 `data/<bench_name>-<ckpt_name>-<env_cfg_type>-joint/`; `--output` overrides it.
 Existing output directories are rejected.
 
-For `m92uw`, `mobile` or `mobile_m92uw`, the policy-local
+For `miverse`, `miverse_m92uw`, `m92uw`, `mobile` or `mobile_m92uw`, the policy-local
 [mobile layout](mopa/data/mobile.py) packs 69 raw values into 75 model values using
 position plus rotation-6D for poses. Its manipulation slice is `[0,56)` and its
 mobility slice is `[56,75)`. These pose, torso and base fields extend the shared
@@ -51,8 +55,10 @@ with exact min/max statistics and sampled quantiles; keep the source files at
 those paths. Generic conversion writes decoded RGB NPZ episodes and quantile
 statistics. Neither output uses the LeRobot format.
 
-All stored image buffers are decoded with XPolicyLab's `decode_image_bit`. The
-shared decoder handles legacy and marked RGB buffers. Custom data producers must
+All stored image buffers are decoded with XPolicyLab's `decode_image_bit`.
+MiVerse's original unmarked standard JPEGs receive the shared RGB marker in
+memory before decoding; source HDF5 files are unchanged.
+The generic robot conversion retains shared legacy/marked RGB decoding. Custom data producers must
 use `encode_image_bit` when writing images. Default cameras are
 `cam_head cam_left_wrist cam_right_wrist`; use `--cameras` and
 `--image-size HEIGHT WIDTH` to override the order and 224 x 224 resize.
@@ -65,7 +71,7 @@ must contain a nonempty scalar `instruction` dataset.
 bash train.sh <bench_name> <ckpt_name> <env_cfg_type> joint <seed> <gpu_id> [options]
 
 export MOPA_BASE_VLM=/path/to/Qwen3-VL-4B-Instruct
-bash train.sh "$BENCH_NAME" mobile_run m92uw joint 0 0
+bash train.sh MiVerse mopa miverse joint 0 0
 ```
 
 Use a comma-separated GPU list, such as `0,1`, or `all` for distributed training
@@ -87,7 +93,9 @@ are rejected; optimizer/scheduler resume is not implemented. See
 bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> joint <seed> \
   <policy_gpu_id> <env_gpu_id> <policy_env_or_path> <eval_env_conda_env>
 
-EVAL_ENV_TYPE=sim bash eval.sh "$BENCH_NAME" "$TASK_NAME" mobile_run m92uw joint 0 \
+export MOPA_CHECKPOINT_PATH=/path/to/existing/mopa/checkpoint
+export MOPA_BASE_VLM=/path/to/Qwen3-VL-4B-Instruct
+EVAL_ENV_TYPE=sim bash eval.sh MiVerse "$TASK_NAME" mopa miverse joint 0 \
   0 0 mopa "$EVAL_ENV"
 ```
 
@@ -95,6 +103,12 @@ The standard launcher uses the workspace environment client. Set
 `EVAL_ENV_TYPE=debug` for its interface check and `DEBUG_OBS_ENCODED=1` to exercise
 server image decoding where supported. The server supplies RGB arrays to the
 model. Batched observations/actions are associated using `env_idx`.
+Batch evaluation is enabled by default. Existing checkpoints
+whose saved environment is `m92uw` can run with `miverse`; only the explicit
+75-D mobile aliases above are interchangeable. Action type, dimensions and
+robot metadata are still checked. Set `MOPA_CHECKPOINT_PATH` to an existing
+checkpoint directory or its `model.pt`; weights
+are not copied. A bare checkpoint name otherwise resolves under `MoPA/checkpoints`.
 
 The additional mobile debug launcher uses synthetic observations and checks the
 WebSocket transport plus the optional 90-value action packet:
@@ -123,11 +137,14 @@ interpreters; use `CONDA_ENVS_PATH` for environments in other locations.
 | `execute_steps` | null | Execute up to 16 actions by default, capped by the saved horizon; explicit values must be within that horizon |
 | `action_key_style` | singular | Mobile action keys: `singular` or `plural` |
 | `input_color_order` | rgb | Use `bgr` only to adapt RGB observations to a checkpoint trained on BGR images |
-| `mobile_action_contract` | mopa75 | Native 11-field output or `extended90` with 14 fields |
+| `miverse_action_contract` | mopa75 | Native 11-field output or existing `extended90` with 14 fields |
 | `request_timeout_s` | 120 | RPC timeout in seconds |
 
-`MOPA_CHECKPOINT_PATH`, `MOPA_EXECUTE_STEPS`, `MOPA_ACTION_KEY_STYLE` and
-`MOBILE_ACTION_CONTRACT` override the corresponding deployment keys in the server
+`MOPA_CHECKPOINT_PATH`, `MOPA_BASE_VLM`, `MOPA_EXECUTE_STEPS`,
+`MOPA_ACTION_KEY_STYLE` and `MIVERSE_ACTION_CONTRACT` override the corresponding
+deployment keys in the server. The existing `MOBILE_ACTION_CONTRACT` and
+`mobile_action_contract` key remain compatible and take priority when supplied.
+Use `mopa75` for MiVerse; no additional action format is introduced by this
 launcher. Instructions are read from `instruction`, then `instructions`, then the
 configured task name; for multiple variants, the first is used.
 
@@ -135,7 +152,8 @@ configured task name; for multiple variants, the first is used.
 
 The checkpoint format is `xpl-mopa-query-dmot-v2`. Configuration records the layout,
 query counts, action slices and camera order, all of which must match inference.
-New datasets and checkpoints use the layout tag `mobile_m92uw`. Older layout
+New datasets and checkpoints use the layout tag `miverse_m92uw` and lazy manifests
+use `miverse_hdf5`. Older layout
 labels are accepted when their saved metadata has the same explicit 75-D model,
 69-D raw and joint-dimension signature. The policy-local ignore file excludes weights,
 datasets, generated outputs, logs and caches from version control.

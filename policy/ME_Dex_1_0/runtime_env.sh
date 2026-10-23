@@ -1,6 +1,0 @@
-#!/bin/bash
-set -euo pipefail
-
-export PYTHONNOUSERSITE=1
-export WAN_DISABLE_FLASH_ATTN="${WAN_DISABLE_FLASH_ATTN:-1}"
-export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"

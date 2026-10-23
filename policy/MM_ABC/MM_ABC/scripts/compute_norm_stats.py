@@ -96,7 +96,7 @@ def _merge(dst: RunningStats, part: dict) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mixture", default="configs/mixture/mobile_all.yaml")
+    ap.add_argument("--mixture", default="configs/mixture/miverse_all.yaml")
     ap.add_argument("--out", default="configs/norm_stats")
     ap.add_argument("--chunk-size", type=int, default=32)
     ap.add_argument("--samples-per-profile", type=int, default=4000)

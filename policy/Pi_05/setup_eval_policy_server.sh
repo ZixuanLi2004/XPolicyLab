@@ -21,7 +21,11 @@ UTILS_DIR="${XPL_ROOT}/utils"
 policy_name="$(basename "${SCRIPT_DIR}")"
 yaml_file="${XPL_ROOT}/policy/${policy_name}/deploy.yml"
 
-action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")
+if [[ "${bench_name}" == "MiVerse" ]]; then
+    action_dim=45
+else
+    action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")
+fi
 
 echo "[SERVER] policy=${policy_name}, task=${task_name}, port=${policy_server_port}, action_dim=${action_dim}"
 
@@ -64,7 +68,7 @@ fi
 echo "[SERVER] Activating uv environment: ${policy_uv_env_path}/.venv"
 source "${policy_uv_env_path}/.venv/bin/activate"
 PYTHON_BIN="$(command -v python)"
-OPENPI_SRC="${policy_uv_env_path}/src"
+OPENPI_SRC="${SCRIPT_DIR}/openpi/src"
 echo "[SERVER] Using python: ${PYTHON_BIN}"
 
 PYTHONPATH_PARTS=("${BENCH_ROOT}")

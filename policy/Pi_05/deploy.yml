@@ -2,12 +2,14 @@
 policy_name: Pi_05
 protocol: ws
 host: localhost
-bench_name: null
+bench_name: MiVerse
 task_name: null
-env_cfg_type: null
+env_cfg_type: miverse
 seed: null
 eval_batch: true
 
+# Must point to a checkpoint retrained with the active 45D layout.
+# The previous MiVerse-pi05_miverse_full checkpoints are 75D and are not compatible.
 checkpoint_num: 59999
 result_dir: "./results/pi05/"
 obs_transform_pipeline: "xspark-v1.0"
@@ -16,7 +18,8 @@ obs_transform_pipeline: "xspark-v1.0"
 action_type: joint
 policy_uv_env_path: openpi
 # Must match the config used by train.sh (default OPENPI_TRAIN_CONFIG_NAME).
-train_config_name: pi05_base_aloha_full_sim_arx-x5_seed_0
-repo_id: arx_x5_sim
+train_config_name: pi05_miverse_full
+repo_id: miverse_data
+miverse: true
 
 port: 6000

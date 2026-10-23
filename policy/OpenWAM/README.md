@@ -1,105 +1,75 @@
-# OpenWAM
+# OpenWAM for MiVerse
 
 **Contributor:** OpenWAM Contributors | **Paper:** An Open, Modular Exploration Towards Systematic World–Action Model Pretraining | **arXiv:** [2609.07398](https://arxiv.org/abs/2609.07398) | **Original code:** https://github.com/OpenWAM-Official/OpenWAM
 
-`OpenWAM` adapts the OpenWAM world-action model to XPolicyLab/RoboDojo (`arx_x5`, absolute EE control, batched inference). Integration scripts live at this directory level; the vendored upstream implementation lives in `OpenWAM/`. Official OpenWAM does not expose batch inference; the vendored tree adds `generate_batch` for `eval_batch: true`.
+This adapter includes MiVerse M92UW data conversion, fine-tuning and batched EE evaluation. The vendored implementation is in `OpenWAM/`. Runtime and training use 45 raw dimensions, scattered into the foundation model's original 80-dimensional action space. The obsolete 75-dimensional checkpoint layout is not supported.
 
 Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
 
 ## Installation
 
-Create a Python >= 3.10 environment, then install the official PyTorch CUDA wheel before the adapter packages:
+Use the OpenWAM policy environment with its CUDA-compatible PyTorch installed, then install this checkout and its vendored model:
 
 ```bash
-conda create -n openwam python=3.10
 conda activate openwam
-pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
-
 cd XPolicyLab/policy/OpenWAM
 bash install.sh
 ```
 
-`install.sh` editable-installs XPolicyLab and the vendored `OpenWAM/` package. Cosmos-Predict2.5 extras are not required for the RoboDojo Wan checkpoint.
+`install.sh` installs the dependencies declared by `OpenWAM/pyproject.toml`, including the PyAV and PyArrow conversion dependencies. Model weights and datasets are external resources; this repository does not copy them.
 
 ## Data Processing
 
-OpenWAM consumes native RoboDojo HDF5 (`<dataset_dir>/<task>/<embodiment>/data/episode_*.hdf5`). There is no LeRobot conversion.
+The converter reads `<raw_root>/<task>/miverse/data/episode_*.hdf5` and writes a **custom LeRobot v3 bucket**. Its image keys are `observation.images.cam_head`, `observation.images.cam_left_wrist`, and `observation.images.cam_right_wrist`; `observation.state` and `action` have 45 dimensions. This differs from the shared general-purpose LeRobot converters and must be produced with this policy's converter:
 
 ```bash
-cd XPolicyLab/policy/OpenWAM
-bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type>
+bash process_data.sh <raw_root> [output_directory] [converter_flags...]
 
-# Example
-export OPENWAM_DATASET_DIR=/path/to/robodojo_data
-bash process_data.sh RoboDojo cotrain arx_x5 ee
+# Example; activate the OpenWAM environment first.
+bash process_data.sh /path/to/MiVerse/raw ./data/miverse_ee --workers 16
 ```
 
-If `OPENWAM_DATASET_DIR` (or `policy/OpenWAM/data/<bench>-<ckpt>-<env>-<action>/`) already exists, the script exits. Otherwise it launches the official interactive downloader `OpenWAM/scripts/download_assets/download_benchmark_data.py` — select RoboDojo.
+The output defaults to `OPENWAM_DATASET_DIR` or `./data/miverse_ee`. `OPENWAM_PYTHON` can select another Python executable. `--max-episodes N` limits a conversion; `--metadata-only` rebuilds metadata; completed episodes are skipped unless `--force` is passed. Use a separate output directory when changing the selected source episodes or image settings.
 
-## Model Assets
-
-Released RoboDojo SFT checkpoints are self-contained (`config.yaml`, `checkpoint_step_*.safetensors`, `normalization_stats.npy`). Download from [Hugging Face OpenWAM](https://huggingface.co/OpenWAM) or with the official helper:
-
-```bash
-cd XPolicyLab/policy/OpenWAM/OpenWAM
-python scripts/download_assets/download_openwam_checkpoints.py
-```
-
-Place or symlink the checkpoint directory where eval can resolve it:
-
-```bash
-cd XPolicyLab/policy/OpenWAM
-mkdir -p checkpoints
-ln -sfn /path/to/New_OpenWAM_RoboDojo_SFT_60k checkpoints/New_OpenWAM_RoboDojo_SFT_60k
-```
-
-Training from scratch also needs the Wan video backbone (`python scripts/download_assets/download_video_backbone.py` inside `OpenWAM/`). Fine-tuning a released checkpoint uses `OPENWAM_FINETUNE_CKPT_PATH`.
+The layout is `left EE xyz+rot6d (9), left hand (12), right EE xyz+rot6d (9), right hand (12), base vx/vy/wz (3)`. Poses use the robot base frame. Conversion decodes HDF5 images only with `XPolicyLab.utils.process_data.decode_image_bit`, preserving RGB for both legacy and marked JPEG buffers. Training uses the resulting 224×224 RGB videos. State and action normalization statistics are computed separately.
 
 ## Training
 
+The standard wrapper selects the MiVerse EE reader and keeps the original 80-dimensional `dual_system` model. Set the converted dataset and the OpenWAM Alpha foundation checkpoint explicitly:
+
 ```bash
-cd XPolicyLab/policy/OpenWAM
-export OPENWAM_DATASET_DIR=/path/to/robodojo_data
+bash train.sh <bench_name> <ckpt_name> <env_cfg_type> ee <seed> <gpu_ids> [num_gpus] [Hydra overrides...]
 
-bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>
-
-# Example: RoboDojo SFT on GPU 0 (comma-separated gpu_id for multi-GPU)
-bash train.sh RoboDojo cotrain arx_x5 ee 0 0
+OPENWAM_DATASET_DIR="$PWD/data/miverse_ee" \
+OPENWAM_FOUNDATION_CKPT=/path/to/OpenWAM-Alpha-Pretrain-Foundation-Model \
+bash train.sh MiVerse openwam miverse ee 0 0,1 2
 ```
 
-This wraps official `OpenWAM/scripts/train.sh` with `dataloader=robodojo`. Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`. Extra Hydra overrides go in `OPENWAM_TRAIN_OVERRIDES`.
+`OPENWAM_BATCH_SIZE` defaults to 16 and `OPENWAM_MAX_STEPS` to 60000, matching the source MiVerse training entry. `OPENWAM_OUTPUT_PATH` overrides the output root; otherwise training writes beneath `checkpoints/<bench>-<ckpt>-<env>-ee-<seed>/`. OpenWAM may create a timestamped run directory inside that root; pass the directory containing `config.yaml`, `normalization_stats.npy` and checkpoint files to evaluation. Additional Hydra overrides are forwarded unchanged, including `training.resume_ckpt_path=...` for resuming a run.
+
+`train_miverse_openwam_ee.sh` also remains available as the direct source-style entry. It accepts Hydra overrides and reads `OPENWAM_GPUS`, `OPENWAM_PYTHON`, `OPENWAM_DATASET_DIR` (or `MIVERSE_DATASET_DIR`), `OPENWAM_FOUNDATION_CKPT`, and `OPENWAM_OUTPUT_PATH`.
 
 ## Evaluation
 
+Use `env_cfg_type=miverse`, `action_type=ee`, and an **EE45-trained MiVerse checkpoint**. Images are already RGB arrays when they reach `model.py`. The adapter mirrors training resize behavior (AREA to 224×224, then LANCZOS to each camera tile), keeps the raw instruction, and returns base-frame EE poses, both dexterous hands, and base velocities. Unmodeled `vz`, `wx` and `wy` are zero commands.
+
 ```bash
-cd XPolicyLab/policy/OpenWAM
-bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
-  <policy_gpu_id> <env_gpu_id> <policy_conda_env> <eval_env_conda_env>
+bash eval.sh <bench_name> <task_name> <ckpt_name> miverse ee <seed> <policy_gpu> <sim_gpu> <policy_env> <sim_env>
 
-# Example: offline wiring check (no simulator, no checkpoint load)
-EVAL_ENV_TYPE=debug OPENWAM_ALLOW_DUMMY_POLICY=true \
-  bash eval.sh RoboDojo stack_bowls dummy arx_x5 ee 0 0 0 <policy_conda_env> <eval_env_conda_env>
-
-# Example: evaluate a released checkpoint on stack_bowls
-bash eval.sh RoboDojo stack_bowls New_OpenWAM_RoboDojo_SFT_60k arx_x5 ee 0 0 0 \
-  <policy_conda_env> <eval_env_conda_env>
+OPENWAM_CKPT_DIR=/path/to/MiVerse-openwam-ee/run \
+bash eval.sh MiVerse place_fruit_basket openwam miverse ee 0 0 1 openwam RoboDojo
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. `ckpt_name` may be the short directory name, the full 5-tuple run directory, or an absolute path. Override with `OPENWAM_CKPT_DIR`. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+The server accepts either a conda environment name or an absolute environment prefix. The client uses the shared `utils/setup_env_client.sh` entry and the simulation scripts in the parent workspace. For unified RoboDojo orchestration, pass this directory as `--policy-dir` to the existing simulation CLI.
 
 ## Configuration
 
-`deploy.yml` keys to check before evaluation: `eval_batch`, `action_type`, `device`, `ckpt_dir`, `openwam_root`, `openwam_deploy_config`, `replan_steps`, `allow_dummy_policy`.
+- `ckpt_dir` / `OPENWAM_CKPT_DIR`: trained directory. Otherwise the shared checkpoint resolver accepts a path as `ckpt_name`, the standard run name, or `checkpoints/<ckpt_name>`.
+- `checkpoint_file` / `OPENWAM_CHECKPOINT_FILE`: optional checkpoint filename; unset loads the highest step.
+- `openwam_root` / `OPENWAM_ROOT`: source tree; the server defaults to the vendored `OpenWAM/` tree.
+- `openwam_deploy_config` / `OPENWAM_DEPLOY_CONFIG`: optional deployment YAML.
+- `replan_steps`: executed steps per action chunk; null follows the checkpoint deployment horizon.
+- `eval_batch: true`: one `generate_batch` call for the active environments.
+- `allow_dummy_policy` / `OPENWAM_ALLOW_DUMMY_POLICY`: transport testing only; false for real evaluation.
 
-| Variable | Notes |
-|---|---|
-| `OPENWAM_DATASET_DIR` | Native RoboDojo HDF5 root for `process_data.sh` / `train.sh`. |
-| `OPENWAM_CKPT_DIR` | Explicit eval checkpoint directory (`config.yaml` + safetensors). |
-| `OPENWAM_ROOT` | Optional OpenWAM source override; defaults to the vendored `OpenWAM/`. |
-| `OPENWAM_DEPLOY_CONFIG` | Optional deploy yaml override; defaults to `OpenWAM/configs/deploy.yaml`. |
-| `OPENWAM_TRAIN_OVERRIDES` | Extra Hydra overrides forwarded to official `scripts/train.sh`. |
-| `OPENWAM_FINETUNE_CKPT_PATH` | Warm-start directory for official `training.finetune_ckpt_path`. |
-| `OPENWAM_RESUME_CKPT_PATH` | Resume directory for official `training.resume_ckpt_path`. |
-| `OPENWAM_ALLOW_DUMMY_POLICY` | Debug-only: skip checkpoint load and return hold-position chunks. |
-
-`eval_batch: true` stacks every running env into one `engine.generate_batch` forward. `model.py` re-forces `dit_cache` / `compile` / `decode_video` off and `inference_mode=sync`. `device: cuda` loads Wan, UMT5-XXL, and ActionDiT on GPU, matching official OpenWAM deploy.
+Compilation, DiT cache and video decoding are disabled, and the synchronous executor is selected, matching the source MiVerse batched inference behavior. The checkpoint must declare `dataloader.type=miverse_ee`, `dataloader.action_mode=miverse_ee`, model action dimension 80, and separate `miverse_ee_state` statistics.

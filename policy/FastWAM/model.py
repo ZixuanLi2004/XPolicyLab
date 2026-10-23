@@ -5,8 +5,12 @@ from typing import Any
 
 import cv2
 import numpy as np
+import torch
+from torchvision.transforms import InterpolationMode
+from torchvision.transforms import functional as tv_resize
 
 from XPolicyLab.model_template import ModelTemplate
+from XPolicyLab.utils import miverse_joint_layout
 from XPolicyLab.utils.process_data import (
     get_robot_action_dim_info,
     pack_robot_state,
@@ -33,23 +37,44 @@ def _is_none_like(value: Any) -> bool:
     return isinstance(value, str) and value.strip().lower() in {"", "none", "null"}
 
 
-def _standardize_rgb(image: np.ndarray) -> np.ndarray:
+def _standardize_rgb(image: np.ndarray, *, miverse: bool = False) -> np.ndarray:
+    """Apply the same per-camera resize used before FastWAM training.
+
+    MiVerse MP4s are written as 224x224 frames by ``process_miverse.py`` and
+    the FastWAM processor then resizes each camera to 240x320 before the
+    three-camera RobotWin mosaic is built.  Runtime observations arrive at
+    their native camera size, so replaying only the final 240x320 resize would
+    feed a different image geometry to the checkpoint.
+    """
     image = np.asarray(image)
     if image.ndim != 3 or image.shape[-1] != 3:
         raise ValueError(f"Expected HWC image with 3 channels, got {image.shape}")
     if image.dtype != np.uint8:
         image = np.clip(image, 0, 255).astype(np.uint8)
+    if miverse and image.shape[:2] != (224, 224):
+        image = cv2.resize(image, (224, 224), interpolation=cv2.INTER_LINEAR)
     if image.shape[:2] != (240, 320):
-        image = cv2.resize(image, (320, 240), interpolation=cv2.INTER_AREA)
+        # Match FastWAMProcessor's torchvision Resize(BILINEAR, antialias=True)
+        # used on the 224x224 LeRobot frames; this preserves RGB channels.
+        chw = torch.from_numpy(np.ascontiguousarray(image)).permute(2, 0, 1)
+        chw = tv_resize.resize(
+            chw,
+            [240, 320],
+            interpolation=InterpolationMode.BILINEAR,
+            antialias=True,
+        )
+        image = chw.permute(1, 2, 0).contiguous().numpy()
     if image.shape != (240, 320, 3):
         raise ValueError(f"Expected standardized RGB shape (240, 320, 3), got {image.shape}")
     return image
 
 
 def _get_instruction(obs: dict, fallback: str) -> str:
-    value = obs.get("task_instruction")
+    # Match MM-ABC/XPolicyLab's runtime contract: instruction first, with
+    # legacy task_instruction accepted only as a fallback.
+    value = obs.get("instruction", obs.get("instructions"))
     if value is None:
-        value = obs.get("instruction", obs.get("instructions"))
+        value = obs.get("task_instruction")
     if isinstance(value, (list, tuple)):
         return str(value[0]) if value else fallback
     if value is None:
@@ -64,7 +89,12 @@ class Model(ModelTemplate):
     def __init__(self, model_cfg):
         self.model_cfg = dict(model_cfg)
         self.action_type = self.model_cfg["action_type"]
-        self.env_cfg_type = self.model_cfg["env_cfg_type"]
+        self.env_cfg_type = self.model_cfg.get("env_cfg_type")
+        self.miverse_mode = _is_true(self.model_cfg.get("miverse", True))
+        if self.miverse_mode:
+            configured_dim = self.model_cfg.get("action_dim")
+            if configured_dim is not None and int(configured_dim) != miverse_joint_layout.MODEL_DIM:
+                raise ValueError(f"FastWAM MiVerse requires action_dim=45, got {configured_dim}.")
         self.action_horizon = 1
         self.replan_steps = int(self.model_cfg.get("replan_steps") or 24)
         self.default_instruction = str(
@@ -72,7 +102,9 @@ class Model(ModelTemplate):
             or self.model_cfg.get("prompt")
             or "follow the instruction"
         )
-        self.robot_action_dim_info = get_robot_action_dim_info(self.env_cfg_type)
+        self.robot_action_dim_info = (
+            None if self.miverse_mode else get_robot_action_dim_info(self.env_cfg_type)
+        )
         self.last_obs = None
         self.last_instruction = self.default_instruction
         self.model = None
@@ -107,23 +139,24 @@ class Model(ModelTemplate):
 
     def _encode_obs_for_fastwam(self, obs: dict) -> dict:
         vision = obs["vision"]
-        adapted = {
+        if self.miverse_mode:
+            state_vector = miverse_joint_layout.pack(obs.get("state", obs)).astype(np.float32)
+        else:
+            state_vector = pack_robot_state(
+                obs,
+                self.action_type,
+                self.robot_action_dim_info,
+                source_type="obs",
+                state_type="state",
+            ).astype(np.float32)
+        return {
             "observation": {
-                "head_camera": {"rgb": _standardize_rgb(vision["cam_head"]["color"])},
-                "left_camera": {"rgb": _standardize_rgb(vision["cam_left_wrist"]["color"])},
-                "right_camera": {"rgb": _standardize_rgb(vision["cam_right_wrist"]["color"])},
+                "head_camera": {"rgb": _standardize_rgb(vision["cam_head"]["color"], miverse=self.miverse_mode)},
+                "left_camera": {"rgb": _standardize_rgb(vision["cam_left_wrist"]["color"], miverse=self.miverse_mode)},
+                "right_camera": {"rgb": _standardize_rgb(vision["cam_right_wrist"]["color"], miverse=self.miverse_mode)},
             },
-            "joint_action": {
-                "vector": pack_robot_state(
-                    obs,
-                    self.action_type,
-                    self.robot_action_dim_info,
-                    source_type="obs",
-                    state_type="state",
-                ).astype(np.float32)
-            },
+            "joint_action": {"vector": state_vector},
         }
-        return adapted
 
     def update_obs(self, obs):
         self.last_obs = self._encode_obs_for_fastwam(obs)
@@ -140,6 +173,8 @@ class Model(ModelTemplate):
             self._batch_instruction[env_idx] = _get_instruction(obs, self.default_instruction)
 
     def _zero_actions(self):
+        if self.miverse_mode:
+            return [miverse_joint_layout.unpack(row) for row in np.zeros((self.replan_steps, 45), dtype=np.float32)]
         dim = sum(self.robot_action_dim_info["arm_dim"]) + sum(self.robot_action_dim_info["ee_dim"])
         zeros = np.zeros((self.replan_steps, dim), dtype=np.float32)
         return unpack_robot_state(zeros, self.action_type, self.robot_action_dim_info, source_type="obs")
@@ -155,14 +190,18 @@ class Model(ModelTemplate):
             action_chunk = action_chunk[None, :]
         n_exec = min(self.replan_steps, action_chunk.shape[0])
         action_chunk = action_chunk[:n_exec]
+        if self.miverse_mode:
+            return [miverse_joint_layout.unpack(row) for row in action_chunk]
         return unpack_robot_state(action_chunk, self.action_type, self.robot_action_dim_info, source_type="obs")
 
     def get_action(self):
         return self._infer_actions(self.last_obs, self.last_instruction)
 
-    def get_action_batch(self, env_idx_list):
+    def get_action_batch(self, env_idx_list=None):
         if not hasattr(self, "_batch_obs"):
             raise ValueError("No batch observation is available. Call update_obs_batch() first.")
+        if env_idx_list is None:
+            env_idx_list = list(self._batch_obs)
         return [
             self._infer_actions(self._batch_obs[int(env_idx)], self._batch_instruction[int(env_idx)])
             for env_idx in env_idx_list
@@ -171,5 +210,7 @@ class Model(ModelTemplate):
     def reset(self):
         self.last_obs = None
         self.last_instruction = self.default_instruction
+        self._batch_obs = {}
+        self._batch_instruction = {}
         if self.model is not None:
             self.model.reset()

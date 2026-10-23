@@ -1,1 +1,0 @@
-"""PatchWAM research modules."""

@@ -43,6 +43,10 @@ class JsonDataset(Dataset):
         self.max_samples = int(params.get("max_steps", 1000)) * self.batch_size * int(os.environ.get("WORLD_SIZE", 1))
         self.mean, self.std = validate_stats(data["mean"], data["std"], self.action_length)
         self.q01, self.q99 = validate_quantiles(data["q01"], data["q99"])
+        self.miverse_layout = bool(data.get("miverse_layout", False))
+        self.active_action_ranges = data.get("active_action_ranges")
+        if self.miverse_layout and not self.active_action_ranges:
+            raise ValueError("MiVerse JSON training requires explicit active_action_ranges")
         self.files = self._json_files(data["paths"])
         self.samples = self._samples()
 
@@ -58,14 +62,21 @@ class JsonDataset(Dataset):
             raise IndexError(f"invalid sample at index={index}: frame_index={frame}")
 
         prompt = self._prompt(traj)
-        left = self._arm_action(traj, "left", frame, steps)
-        right = self._arm_action(traj, "right", frame, steps)
-        waist = self._delta(traj, "proprios.waist_pos", "actions.waist_pos", frame, steps)
-        base = self._pad(self._future(traj, "actions.base_vel", frame, steps), steps)
-        action_parts = normalize_action_parts((*left, *right, waist, base), self.mean, self.std)
-        action = compose_action(*action_parts, action_length=self.action_length)
-        state = normalize_quantile(self._state(traj, frame), self.q01, self.q99)
-        action_mask = build_action_mask(self.action_length, self._mask(traj, steps))
+        if self.miverse_layout:
+            action, state = self._miverse_action_state(traj, frame, steps)
+        else:
+            left = self._arm_action(traj, "left", frame, steps)
+            right = self._arm_action(traj, "right", frame, steps)
+            waist = self._delta(traj, "proprios.waist_pos", "actions.waist_pos", frame, steps)
+            base = self._pad(self._future(traj, "actions.base_vel", frame, steps), steps)
+            action_parts = normalize_action_parts((*left, *right, waist, base), self.mean, self.std)
+            action = compose_action(*action_parts, action_length=self.action_length)
+            state = normalize_quantile(self._state(traj, frame), self.q01, self.q99)
+        action_mask = build_action_mask(
+            self.action_length,
+            self._mask(traj, steps),
+            active_ranges=self.active_action_ranges,
+        )
         prompt["conversations"] += [
             {"from": "human", "value": "Robot state: <state>"},
             {"from": "gpt", "value": "".join(f"<a_{index}>" for index in range(steps)) + "<score>"},
@@ -76,13 +87,51 @@ class JsonDataset(Dataset):
                 prompt["conversations"],
                 self._augment(self._images(traj, prompt["images"], frame)),
             ),
-            "action": torch.from_numpy(action),
+            "action": torch.from_numpy(action.astype(np.float32)),
             "action_mask": torch.from_numpy(action_mask),
-            "state": torch.from_numpy(state),
-            "vlm_action_target": torch.from_numpy(action[:steps]),
+            "state": torch.from_numpy(state.astype(np.float32)),
+            "vlm_action_target": torch.from_numpy(action[:steps].astype(np.float32)),
             "vlm_action_mask": torch.from_numpy(action_mask[:steps]),
             "vlm_action_actual_length": steps,
         }
+
+    def _miverse_action_state(self, traj, frame, steps):
+        """Use HDF5-derived `action/*` targets; never synthesize next-state actions."""
+        from mibot.utils.miverse_adapter import (
+            raw_fields_to_miverse75,
+            state75_to_xiaomi60,
+            state75_to_xiaomi60_action,
+        )
+
+        def fields(section):
+            prefix = f"{section}."
+            names = (
+                "left_arm_joint_states", "right_arm_joint_states",
+                "left_ee_joint_states", "right_ee_joint_states",
+                "left_base_ee_poses", "right_base_ee_poses",
+                "waist_joint_states", "leg_joint_states", "head_base_poses",
+                "root_linear_velocity", "root_angular_velocity",
+            )
+            values = {}
+            for name in names:
+                value = get_value(traj, prefix + name)
+                if value is None:
+                    raise KeyError(f"{prefix}{name}")
+                values[name] = value
+            return values
+
+        state75_all = raw_fields_to_miverse75(fields("proprios"))
+        action75_all = raw_fields_to_miverse75(fields("actions"))
+        current75 = state75_all[frame]
+        target75 = action75_all[frame : frame + steps]
+        raw_action = state75_to_xiaomi60_action(current75, target75).astype(np.float32)
+        if steps < self.action_length:
+            raw_action = self._pad(raw_action, steps)
+        action = (raw_action - self.mean) / (self.std + 1e-6)
+        state = normalize_quantile(
+            state75_to_xiaomi60(current75).reshape(1, -1), self.q01, self.q99
+        )
+        return action, state
 
     @staticmethod
     @lru_cache(maxsize=32)

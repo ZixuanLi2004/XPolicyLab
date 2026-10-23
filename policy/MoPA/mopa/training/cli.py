@@ -59,7 +59,7 @@ def run_training(args: argparse.Namespace) -> float:
     torch.random.default_generator.manual_seed(args.seed)
     if device.type == "cuda":
         torch.cuda.manual_seed_all(args.seed)
-    config = json.loads(files("mopa").joinpath("configs/model.json").read_text(encoding="utf-8"))
+    config = json.loads(files(__package__.rsplit(".", 1)[0]).joinpath("configs/model.json").read_text(encoding="utf-8"))
     if args.config:
         config.update(json.loads(args.config.read_text(encoding="utf-8")))
     base_vlm = args.base_vlm or config.get("base_vlm")
@@ -81,7 +81,7 @@ def run_training(args: argparse.Namespace) -> float:
     config.update(format_version=FORMAT_VERSION, action_dim=dataset.dim, state_dim=dataset.dim,
                   base_vlm=str(Path(base_vlm).expanduser().resolve()))
     if mobile.matches_layout(dataset.metadata):
-        config.update(layout="mobile_m92uw", manipulation_action_range=[0, 56],
+        config.update(layout=mobile.EMBODIMENT_TAG, manipulation_action_range=[0, 56],
                       mobility_action_range=[56, 75])
     config["training"] = {key: getattr(args, key) for key in (
         "seed", "device", "max_steps", "batch_size", "learning_rate", "backbone_learning_rate",

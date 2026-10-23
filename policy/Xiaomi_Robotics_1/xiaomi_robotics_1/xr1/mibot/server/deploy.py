@@ -35,12 +35,17 @@ def load_stats(cfg, device):
     action_length = int(data.get("action_length", cfg.data.params.get("action_length", 30)))
     mean, std = validate_stats(data.mean, data.std, action_length)
     q01, q99 = validate_quantiles(data.q01, data.q99)
+    active_ranges = data.get("active_action_ranges", None)
+    action_mask = build_action_mask(
+        action_length,
+        active_ranges=active_ranges,
+    )
     return (
         torch.tensor(mean, device=device),
         torch.tensor(std, device=device),
         torch.tensor(q01, device=device),
         torch.tensor(q99, device=device),
-        torch.from_numpy(build_action_mask(action_length)).to(device),
+        torch.from_numpy(action_mask).to(device),
     )
 
 

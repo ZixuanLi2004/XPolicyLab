@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sweep micro-batch sizes, one fresh process per size.
 #
-#   bash scripts/probe.sh configs/train/mobile.yaml "4 8 12 16"
+#   bash scripts/probe.sh configs/train/miverse.yaml "4 8 12 16"
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

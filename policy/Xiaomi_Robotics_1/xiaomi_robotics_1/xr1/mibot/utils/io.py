@@ -157,11 +157,14 @@ def validate_quantiles(q01: Sequence[Sequence[float]], q99: Sequence[Sequence[fl
     return q01, q99
 
 
-def build_action_mask(action_length: int, temporal_mask=None) -> np.ndarray:
+def build_action_mask(action_length: int, temporal_mask=None, active_ranges=None) -> np.ndarray:
     temporal = np.ones(action_length, dtype=np.int32) if temporal_mask is None else np.asarray(temporal_mask, dtype=np.int32)
     mask = np.zeros((action_length, ACTION_DIM), dtype=np.int32)
-    for _, slc in ACTION_PARTS:
-        mask[:, slc] = temporal[:, None]
+    ranges = [(slc.start, slc.stop) for _, slc in ACTION_PARTS] if active_ranges is None else [(int(lo), int(hi)) for lo, hi in active_ranges]
+    for lo, hi in ranges:
+        if lo < 0 or hi > ACTION_DIM or lo >= hi:
+            raise ValueError(f"invalid action range {(lo, hi)} for ACTION_DIM={ACTION_DIM}")
+        mask[:, lo:hi] = temporal[:, None]
     return mask
 
 

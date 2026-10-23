@@ -77,7 +77,8 @@ from .datasets.video_utils import (
 )
 import traceback
 
-CODEBASE_VERSION = "v2.1"
+# Local loader keeps the FastWAM v2-compatible API while reading LeRobot v3 metadata.
+CODEBASE_VERSION = "v3.0"
 
 
 class LeRobotDatasetMetadata:
@@ -112,7 +113,7 @@ class LeRobotDatasetMetadata:
         if (self.root / "annotations").exists():
             self.annotations = load_annotations(self.root)
         self.episodes = load_episodes(self.root)
-        if self._version < packaging.version.parse("v2.1"):
+        if self._version < packaging.version.parse("v2.1") or not (self.root / "meta" / "episodes_stats.jsonl").exists():
             self.stats = load_stats(self.root)
             self.episodes_stats = backward_compatible_episodes_stats(self.stats, self.episodes)
         else:
@@ -139,11 +140,25 @@ class LeRobotDatasetMetadata:
         return packaging.version.parse(self.info["codebase_version"])
 
     def get_data_file_path(self, ep_index: int) -> Path:
+        if self._version >= packaging.version.parse("v3.0"):
+            episode = self.episodes[ep_index]
+            return Path(self.data_path.format(
+                chunk_index=int(episode["data/chunk_index"]),
+                file_index=int(episode["data/file_index"]),
+            ))
         ep_chunk = self.get_episode_chunk(ep_index)
         fpath = self.data_path.format(episode_chunk=ep_chunk, episode_index=ep_index)
         return Path(fpath)
 
     def get_video_file_path(self, ep_index: int, vid_key: str) -> Path:
+        if self._version >= packaging.version.parse("v3.0"):
+            episode = self.episodes[ep_index]
+            prefix = f"videos/{vid_key}"
+            return Path(self.video_path.format(
+                video_key=vid_key,
+                chunk_index=int(episode[f"{prefix}/chunk_index"]),
+                file_index=int(episode[f"{prefix}/file_index"]),
+            ))
         ep_chunk = self.get_episode_chunk(ep_index)
         fpath = self.video_path.format(episode_chunk=ep_chunk, video_key=vid_key, episode_index=ep_index)
         return Path(fpath)
@@ -498,6 +513,14 @@ class LeRobotDataset(torch.utils.data.Dataset):
             self.hf_dataset = self.load_hf_dataset()
 
         self.episode_data_index = get_episode_data_index(self.meta.episodes, self.episodes)
+        # Map the episode id stored in a parquet row to its local selected-episode index.
+        # Some v3 parquet/cache combinations can expose an id that is not present in
+        # self.episodes; the row boundaries remain authoritative for delta queries.
+        self._episode_index_to_local = (
+            {int(ep_id): local_idx for local_idx, ep_id in enumerate(self.episodes)}
+            if self.episodes is not None
+            else None
+        )
 
         # Check timestamps
         timestamps = torch.stack(self.hf_dataset["timestamp"]).numpy()
@@ -751,7 +774,20 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         query_indices = None
         if self.delta_indices is not None:
-            current_ep_idx = self.episodes.index(ep_idx) if self.episodes is not None else ep_idx
+            if self.episodes is None:
+                current_ep_idx = ep_idx
+            else:
+                current_ep_idx = self._episode_index_to_local.get(ep_idx)
+                if current_ep_idx is None:
+                    # Fall back to the local row boundaries instead of failing on
+                    # a stale/mismatched episode id from a cached v3 parquet table.
+                    current_ep_idx = int(
+                        torch.searchsorted(
+                            self.episode_data_index["to"],
+                            torch.tensor(idx, dtype=torch.long),
+                            right=True,
+                        ).item()
+                    )
             query_indices, padding = self._get_query_indices(idx, current_ep_idx)
             query_result = self._query_hf_dataset_fast(query_indices)
             item = {**item, **padding}

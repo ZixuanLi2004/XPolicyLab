@@ -1,28 +1,7 @@
-"""XPolicyLab adapter for the OpenWAM policy (RoboDojo dual-arm arx_x5, EE control).
+"""MiVerse M92UW EE45 adapter for the 80-D unified OpenWAM model.
 
-Loads the OpenWAM checkpoint in-process through the standard deploy path
-(``openwam.deploy.server.build_server_from_config`` — the same construction
-the JSON WebSocket server and ``scripts/verify_batch_equivalence.py`` use),
-then serves XPolicyLab's batched eval protocol. Every ``get_action_batch``
-call stacks all running envs into ONE ``engine.generate_batch`` forward pass
-(true batch inference, verified contamination-free on real weights).
-
-Coordinate contract (must mirror training — ``openwam/dataloader/robodojo.py``):
-
-    obs    env-relative world pose [xyz, quat wxyz] per arm + gripper [0, 1]
-        -> robot-base frame       (env_relative_world_to_robot_base, dual-X5
-                                   base constants from robodojo_contract)
-        -> EEF20 state            [L xyz3, L rot6d6, L grip1,
-                                   R xyz3, R rot6d6, R grip1]
-
-    action model emits absolute EEF20 in robot-base frame (physical units)
-        -> per-arm pose + gripper (eef20_to_arms)
-        -> env-relative world     (robot_base_to_env_relative_world)
-        -> XPolicyLab ee dicts    {left_ee_pose, left_ee_joint_state,
-                                   right_ee_pose, right_ee_joint_state}
-
-Correctness-first settings are re-forced at load time regardless of the yaml:
-dit_cache off, compile off, decode_video off, sync executor.
+Three RGB views and base-frame end-effector poses follow the MiVerse converter
+and reader. Batched inference makes one generate_batch call for active envs.
 """
 
 from __future__ import annotations
@@ -36,19 +15,13 @@ import numpy as np
 
 from XPolicyLab.model_template import ModelTemplate
 from XPolicyLab.utils.checkpoint_resolver import resolve_checkpoint_root
-from XPolicyLab.utils.process_data import get_robot_action_dim_info
+from XPolicyLab.policy.OpenWAM import miverse_ee_adapter
 
 POLICY_DIR = Path(__file__).resolve().parent
 # Vendored OpenWAM source tree (weights excluded).
 VENDORED_OPENWAM_ROOT = POLICY_DIR / "OpenWAM"
 CHECKPOINTS_DIR = POLICY_DIR / "checkpoints"
 
-_EXPECTED_ARM_DIMS = [6, 6]
-_EXPECTED_EE_DIMS = [1, 1]
-_EEF20_DIM = 20
-_QUATERNION_ATOL = 1e-6
-# Isaac occasionally reports a closed gripper as ~-3e-17.
-_GRIPPER_ATOL = 1e-8
 # Fixed obs -> OpenWAM payload camera mapping (matches training camera_layout).
 _CAMERA_TO_PAYLOAD = {
     "cam_head": "head_camera",
@@ -128,36 +101,6 @@ def _decode_instruction(value: Any, fallback: str) -> str:
     return text if text else fallback
 
 
-def _validated_pose(value: Any, name: str) -> np.ndarray:
-    pose = np.asarray(value, dtype=np.float64).reshape(-1)
-    if pose.shape != (7,):
-        raise ValueError(f"{name} must have shape (7,) [xyz, quat wxyz], got {pose.shape}")
-    if not np.all(np.isfinite(pose)):
-        raise ValueError(f"{name} must contain only finite values")
-    norm = float(np.linalg.norm(pose[3:7]))
-    if norm < 1e-8:
-        raise ValueError(f"{name} quaternion must be non-zero")
-    # Isaac emits unit wxyz quaternions; normalize instead of rejecting so the
-    # synthetic debug client (which sends placeholder np.ones(7) poses) can
-    # still exercise the protocol. Large deviations are logged, not fatal.
-    if abs(norm - 1.0) > 1e-3:
-        print(f"[OpenWAM] warning: {name} quaternion norm {norm:.6g} != 1; normalizing.")
-    pose = pose.copy()
-    pose[3:7] /= norm
-    return pose
-
-
-def _validated_gripper(value: Any, name: str) -> np.ndarray:
-    gripper = np.asarray(value, dtype=np.float64).reshape(-1)
-    if gripper.shape != (1,):
-        raise ValueError(f"{name} must have shape (1,), got {gripper.shape}")
-    if not np.all(np.isfinite(gripper)):
-        raise ValueError(f"{name} must contain only finite values")
-    if np.any((gripper < -_GRIPPER_ATOL) | (gripper > 1.0 + _GRIPPER_ATOL)):
-        raise ValueError(f"{name} gripper value must be within [0, 1], got {gripper}")
-    return np.clip(gripper, 0.0, 1.0)
-
-
 def _to_pil(value: Any, ctx: str):
     """Standardize a decoded obs camera frame into an RGB PIL image."""
     from PIL import Image
@@ -179,31 +122,14 @@ def _to_pil(value: Any, ctx: str):
 class Model(ModelTemplate):
     def __init__(self, model_cfg):
         self.model_cfg = dict(model_cfg)
-
+        self.raw_action_dim = miverse_ee_adapter.RAW_DIM
         action_type = self.model_cfg.get("action_type") or "ee"
         if action_type != "ee":
-            raise ValueError(f"OpenWAM RoboDojo is an EE-space policy; action_type must be 'ee', got {action_type!r}.")
-        env_cfg_type = self.model_cfg.get("env_cfg_type")
-        if not env_cfg_type:
-            raise ValueError("env_cfg_type is required for the OpenWAM adapter.")
-        dim_info = get_robot_action_dim_info(env_cfg_type)
-        if list(dim_info.get("arm_dim") or []) != _EXPECTED_ARM_DIMS or list(dim_info.get("ee_dim") or []) != _EXPECTED_EE_DIMS:
-            raise ValueError(
-                "OpenWAM's RoboDojo checkpoint is dual-X5 only (arm_dim [6, 6], ee_dim [1, 1]); "
-                f"env_cfg_type={env_cfg_type!r} resolves to {dim_info!r}."
-            )
-
-        # null -> vendored copy at policy/OpenWAM/OpenWAM (X_WAM-style layout).
+            raise ValueError(f"MiVerse OpenWAM requires action_type='ee', got {action_type!r}")
+        configured_dim = int(self.model_cfg.get("action_dim") or self.raw_action_dim)
+        if configured_dim != self.raw_action_dim:
+            raise ValueError(f"MiVerse OpenWAM expects action_dim=45, got {configured_dim}")
         self.openwam_root = _resolve_openwam_root(self.model_cfg.get("openwam_root"))
-
-        # Canonical training-side conversion + calibration (single source of truth).
-        from openwam.dataloader.robodojo_contract import arx_x5_calibration
-        from openwam.dataloader.transforms.multiview import format_prompt_for_inference
-        from openwam.dataloader.utils import poses as _poses
-
-        self._poses = _poses
-        self._format_prompt = format_prompt_for_inference
-        self._calibration = arx_x5_calibration()
 
         self.default_instruction = str(self.model_cfg.get("default_instruction") or "follow the instruction")
         replan = self.model_cfg.get("replan_steps")
@@ -224,6 +150,18 @@ class Model(ModelTemplate):
             return
 
         ckpt_dir = str(_resolve_ckpt_dir(self.model_cfg))
+        from omegaconf import OmegaConf
+        saved_cfg = OmegaConf.load(Path(ckpt_dir) / "config.yaml")
+        saved_type = OmegaConf.select(saved_cfg, "dataloader.type")
+        if saved_type != "miverse_ee":
+            raise ValueError(f"MiVerse OpenWAM requires dataloader=miverse_ee, got {saved_type!r}")
+        if OmegaConf.select(saved_cfg, "model.architecture.action_dim") != 80:
+            raise ValueError("MiVerse EE checkpoint must use the original 80D OpenWAM model")
+        if OmegaConf.select(saved_cfg, "dataloader.action_mode") != "miverse_ee":
+            raise ValueError("MiVerse EE checkpoint requires dataloader.action_mode=miverse_ee")
+        stats = np.load(Path(ckpt_dir) / "normalization_stats.npy", allow_pickle=True).item()
+        if "miverse_ee_state" not in stats:
+            raise ValueError("MiVerse EE checkpoint is missing its separate state normalization statistics")
 
         # OpenWAM's own deploy defaults; the correctness-critical keys are
         # force-overridden below, so no separate pinned eval yaml is needed.
@@ -231,8 +169,6 @@ class Model(ModelTemplate):
         if _is_none_like(deploy_config):
             deploy_config = str(self.openwam_root / "configs" / "deploy.yaml")
         device = str(self.model_cfg.get("device") or "cuda")
-
-        from omegaconf import OmegaConf
 
         from openwam.deploy.server import _load_deploy_yaml, build_server_from_config
 
@@ -246,7 +182,7 @@ class Model(ModelTemplate):
         OmegaConf.update(deploy_cfg, "inference.inference_mode", "sync", merge=False)
 
         print(f"[OpenWAM] loading checkpoint from {ckpt_dir} on {device} ...")
-        server = build_server_from_config(deploy_cfg, ckpt_dir, device=device)
+        server = build_server_from_config(deploy_cfg, ckpt_dir, device=device, ckpt_name=self.model_cfg.get("checkpoint_file") or None)
         server._init_policy()
         self._engine = server.engine
         self._wam_policy = server._policy  # for the binary-dim legality projection
@@ -267,35 +203,6 @@ class Model(ModelTemplate):
         }
         print(f"[OpenWAM] initialized | {resolved}")
 
-    # ------------------------------------------------------------------
-    # Observation: obs dict -> OpenWAM conditions (world -> base -> EEF20)
-    # ------------------------------------------------------------------
-    def _state_to_eef20(self, state: Mapping) -> np.ndarray:
-        missing = [k for k in ("left_ee_pose", "left_ee_joint_state", "right_ee_pose", "right_ee_joint_state") if k not in state]
-        if missing:
-            raise KeyError(f"obs['state'] is missing required field(s): {', '.join(missing)}")
-        left = self._calibration["arms"]["left"]
-        right = self._calibration["arms"]["right"]
-        left_base = self._poses.env_relative_world_to_robot_base(
-            _validated_pose(state["left_ee_pose"], "left_ee_pose"),
-            left["base_pos_relative_to_env_origin"],
-            left["base_quat_wxyz"],
-        )
-        right_base = self._poses.env_relative_world_to_robot_base(
-            _validated_pose(state["right_ee_pose"], "right_ee_pose"),
-            right["base_pos_relative_to_env_origin"],
-            right["base_quat_wxyz"],
-        )
-        eef20 = self._poses.arms_to_eef20(
-            left_base,
-            _validated_gripper(state["left_ee_joint_state"], "left_ee_joint_state"),
-            right_base,
-            _validated_gripper(state["right_ee_joint_state"], "right_ee_joint_state"),
-        )
-        if eef20.shape != (_EEF20_DIM,):
-            raise RuntimeError(f"state conversion produced {eef20.shape}, expected ({_EEF20_DIM},)")
-        return eef20
-
     def _encode_obs(self, obs: Mapping) -> dict:
         vision = obs.get("vision")
         if not isinstance(vision, Mapping):
@@ -306,19 +213,20 @@ class Model(ModelTemplate):
             if not isinstance(camera, Mapping) or "color" not in camera:
                 raise KeyError(f"missing required camera vision/{camera_name}/color")
             images[payload_name] = _to_pil(camera["color"], ctx=f"vision/{camera_name}/color")
+            images[payload_name] = miverse_ee_adapter.prepare_camera(images[payload_name], camera_name)
 
         state = obs.get("state")
         if not isinstance(state, Mapping):
             raise ValueError("obs['state'] must be a mapping")
-        eef20 = self._state_to_eef20(state)
+        model_state = miverse_ee_adapter.pack_state(obs)
 
         instruction = _decode_instruction(
-            obs.get("instruction", obs.get("task_instruction")), self.default_instruction
+            obs.get("instruction", obs.get("instructions", obs.get("task_instruction"))), self.default_instruction
         )
         return {
             "images": images,
-            "prompt": self._format_prompt(instruction),
-            "state": eef20.astype(np.float32).tolist(),
+            "prompt": instruction,
+            "state": np.asarray(model_state, dtype=np.float32).tolist(),
         }
 
     def _conditions(self, payload: dict) -> dict:
@@ -333,36 +241,11 @@ class Model(ModelTemplate):
             cond["proprio"] = obs["state"]
         return cond
 
-    # ------------------------------------------------------------------
-    # Action: EEF20 chunk (base frame) -> env-relative world ee dicts
-    # ------------------------------------------------------------------
-    def _eef20_chunk_to_native(self, chunk: np.ndarray) -> list[dict]:
-        left_pose, left_grip, right_pose, right_grip = self._poses.eef20_to_arms(np.asarray(chunk, dtype=np.float64))
-        left = self._calibration["arms"]["left"]
-        right = self._calibration["arms"]["right"]
-        left_world = self._poses.robot_base_to_env_relative_world(
-            left_pose, left["base_pos_relative_to_env_origin"], left["base_quat_wxyz"]
-        )
-        right_world = self._poses.robot_base_to_env_relative_world(
-            right_pose, right["base_pos_relative_to_env_origin"], right["base_quat_wxyz"]
-        )
-        left_grip = np.clip(left_grip, 0.0, 1.0)
-        right_grip = np.clip(right_grip, 0.0, 1.0)
-        return [
-            {
-                "left_ee_pose": left_world[t].astype(np.float32),
-                "left_ee_joint_state": left_grip[t].astype(np.float32),
-                "right_ee_pose": right_world[t].astype(np.float32),
-                "right_ee_joint_state": right_grip[t].astype(np.float32),
-            }
-            for t in range(left_world.shape[0])
-        ]
-
     def _hold_position_chunk(self, payload: dict) -> list[dict]:
-        """Dummy-mode chunk: echo the current pose (exercises the full frame chain)."""
+        """Dummy-mode chunk for checking transport without loading weights."""
         steps = self.replan_steps or 8
-        eef20 = np.asarray(payload["state"], dtype=np.float64)
-        return self._eef20_chunk_to_native(np.tile(eef20, (steps, 1)))
+        model_state = np.asarray(payload["state"], dtype=np.float64)
+        return miverse_ee_adapter.unpack_actions(np.tile(model_state, (steps, 1)))
 
     # ------------------------------------------------------------------
     # XPolicyLab protocol
@@ -405,7 +288,7 @@ class Model(ModelTemplate):
         payloads = [self._batch[e] for e in env_idx_list]
 
         if self.allow_dummy_policy:
-            return [self._hold_position_chunk(p) for p in payloads]
+            return [self._hold_position_chunk(payload) for payload in payloads]
 
         conditions = [self._conditions(p) for p in payloads]
         result = self._engine.generate_batch(conditions)
@@ -413,10 +296,11 @@ class Model(ModelTemplate):
         if hasattr(actions, "cpu"):
             actions = actions.detach().cpu().numpy()
         actions = np.asarray(actions)
-        if actions.ndim != 3 or actions.shape[0] != len(env_idx_list) or actions.shape[2] != _EEF20_DIM:
+        expected_dim = self.raw_action_dim
+        if actions.ndim != 3 or actions.shape[0] != len(env_idx_list) or actions.shape[2] != expected_dim:
             raise RuntimeError(
                 f"generate_batch returned actions of shape {actions.shape}; "
-                f"expected (B={len(env_idx_list)}, T, {_EEF20_DIM})."
+                f"expected (B={len(env_idx_list)}, T, {expected_dim})."
             )
         # Same final legality projection the OpenWAM server applies (no-op when
         # the checkpoint declares no binary command dims).
@@ -425,7 +309,7 @@ class Model(ModelTemplate):
         n_exec = actions.shape[1]
         if self.replan_steps is not None:
             n_exec = min(self.replan_steps, n_exec)
-        return [self._eef20_chunk_to_native(actions[b, :n_exec]) for b in range(actions.shape[0])]
+        return [miverse_ee_adapter.unpack_actions(actions[b, :n_exec]) for b in range(actions.shape[0])]
 
     def reset(self):
         self._batch = {}

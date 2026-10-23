@@ -1,12 +1,17 @@
 """XPolicyLab entry point for the installed MoPA policy."""
 
 from pathlib import Path
+import sys
 
-from mopa.integrations.xpolicylab import ModelAdapter
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+if str(WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_ROOT))
+
+from XPolicyLab.policy.MoPA.mopa.integrations.xpolicylab import ModelAdapter
 from XPolicyLab.model_template import ModelTemplate
 from XPolicyLab.utils.checkpoint_resolver import resolve_checkpoint_root
 from XPolicyLab.utils.process_data import get_robot_action_dim_info
-from mopa.data import mobile
+from XPolicyLab.policy.MoPA.mopa.data import mobile
 
 
 class Model(ModelTemplate):
@@ -16,7 +21,7 @@ class Model(ModelTemplate):
         env_cfg_type = model_cfg["env_cfg_type"]
         # The mobile layout adds poses and base channels to the joint schema.
         dim_info = (mobile.metadata()["robot_action_dim_info"]
-                    if str(env_cfg_type).lower() in {"m92uw", "mobile", "mobile_m92uw"}
+                    if str(env_cfg_type).lower() in mobile.ENV_CFG_TYPES
                     else get_robot_action_dim_info(env_cfg_type))
         policy_dir = Path(__file__).resolve().parent
         checkpoint = resolve_checkpoint_root(

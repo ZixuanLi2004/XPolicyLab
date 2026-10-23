@@ -24,40 +24,24 @@ yaml_file="${POLICY_DIR}/deploy.yml"
 # OpenWAM source root: default is the vendored copy inside this policy dir.
 # Weights are NOT vendored; they resolve under policy/OpenWAM/checkpoints/.
 OPENWAM_ROOT="${OPENWAM_ROOT:-${POLICY_DIR}/OpenWAM}"
-CKPT_ROOT="${POLICY_DIR}/checkpoints"
-run_dir_name="${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}-${seed}"
 
-# Checkpoint dir resolution precedence (highest first):
-#   1. OPENWAM_CKPT_DIR        explicit full path override
-#   2. ckpt_name as an absolute path
-#   3. ckpt_name as a relative path (POLICY_DIR-relative)
-#   4. checkpoints/<bench>-<ckpt>-<env>-<action>-<seed>/
-#   5. checkpoints/<ckpt_name>/
-if [[ -n "${OPENWAM_CKPT_DIR:-}" ]]; then
-    ckpt_dir="${OPENWAM_CKPT_DIR}"
-elif [[ "${ckpt_name}" == /* ]]; then
-    ckpt_dir="${ckpt_name}"
-elif [[ "${ckpt_name}" == */* ]]; then
-    ckpt_dir="${POLICY_DIR}/${ckpt_name}"
-elif [[ -d "${CKPT_ROOT}/${run_dir_name}" ]]; then
-    ckpt_dir="${CKPT_ROOT}/${run_dir_name}"
-else
-    ckpt_dir="${CKPT_ROOT}/${ckpt_name}"
-fi
-
-allow_dummy_policy="${OPENWAM_ALLOW_DUMMY_POLICY:-false}"
-# Default: OpenWAM's own deploy defaults; model.py re-forces the
-# correctness-critical keys (dit_cache/compile/decode_video off, sync).
-openwam_deploy_config="${OPENWAM_DEPLOY_CONFIG:-${OPENWAM_ROOT}/configs/deploy.yaml}"
-
-if [[ "${allow_dummy_policy}" != "true" && ! -f "${ckpt_dir}/config.yaml" ]]; then
-    echo -e "\033[31m[SERVER] checkpoint dir has no config.yaml: ${ckpt_dir}\033[0m" >&2
-    exit 1
-fi
+# Keep YAML checkpoint/config values unless an environment override was supplied.
+# The Model resolves ckpt_name and the standard run directory through the shared
+# checkpoint resolver after setup_policy_server.py merges deploy.yml.
+extra_overrides=()
+for setting in \
+    "OPENWAM_CKPT_DIR:ckpt_dir" \
+    "OPENWAM_CHECKPOINT_FILE:checkpoint_file" \
+    "OPENWAM_DEPLOY_CONFIG:openwam_deploy_config" \
+    "OPENWAM_ALLOW_DUMMY_POLICY:allow_dummy_policy"; do
+    env_name=${setting%%:*}
+    config_name=${setting#*:}
+    if [[ -n "${!env_name:-}" ]]; then
+        extra_overrides+=("${config_name}=${!env_name}")
+    fi
+done
 
 echo -e "\033[33m[SERVER] policy=${policy_name}, task=${task_name}, ckpt=${ckpt_name}\033[0m"
-echo -e "\033[33m[SERVER] ckpt_dir: ${ckpt_dir}\033[0m"
-echo -e "\033[33m[SERVER] openwam_deploy_config: ${openwam_deploy_config}\033[0m"
 echo -e "\033[33m[SERVER] policy_server_host=${policy_server_host} policy_server_port=${policy_server_port}\033[0m"
 
 # Resolve the policy python: accept either a conda env prefix path (preferred —
@@ -70,7 +54,7 @@ else
     PYTHON_BIN="python"
 fi
 
-action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")
+action_dim=45
 echo -e "\033[33m[SERVER] action_dim=${action_dim}\033[0m"
 
 # Scope env vars to this server process only; never export them in the
@@ -80,7 +64,7 @@ exec env \
     PYTHONUNBUFFERED=1 \
     TOKENIZERS_PARALLELISM=false \
     CUDA_VISIBLE_DEVICES="${policy_gpu_id}" \
-    PYTHONPATH="${BENCH_ROOT}:${OPENWAM_ROOT}:${PYTHONPATH:-}" \
+    PYTHONPATH="${XPL_ROOT}:${BENCH_ROOT}:${OPENWAM_ROOT}:${PYTHONPATH:-}" \
     "${PYTHON_BIN}" -u "${XPL_ROOT}/setup_policy_server.py" \
         --config_path "${yaml_file}" \
         --overrides \
@@ -95,6 +79,4 @@ exec env \
             action_type="${action_type}" \
             action_dim="${action_dim}" \
             openwam_root="${OPENWAM_ROOT}" \
-            ckpt_dir="${ckpt_dir}" \
-            openwam_deploy_config="${openwam_deploy_config}" \
-            allow_dummy_policy="${allow_dummy_policy}"
+            "${extra_overrides[@]}"

@@ -24,7 +24,7 @@ echo "[SERVER] policy=${policy_name}, task=${task_name}, policy_server_port=${po
 source "${SCRIPT_DIR}/resolve_python.sh"
 PY="$(resolve_python "${policy_conda_env}")"
 BENCH_ROOT="$(cd "${XPL_ROOT}/.." && pwd)"
-export PYTHONPATH="${BENCH_ROOT}:${XPL_ROOT}:${PYTHONPATH:-}"
+export PYTHONPATH="${SCRIPT_DIR}:${BENCH_ROOT}:${XPL_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 echo "[SERVER] python=${PY}"
 
 overrides=(
@@ -40,6 +40,12 @@ overrides=(
 )
 if [[ -n "${MOPA_CHECKPOINT_PATH:-}" ]]; then
     overrides+=("checkpoint_path=${MOPA_CHECKPOINT_PATH}")
+fi
+if [[ -n "${MOPA_BASE_VLM:-}" ]]; then
+    overrides+=("base_vlm=${MOPA_BASE_VLM}")
+fi
+if [[ -n "${MIVERSE_ACTION_CONTRACT:-}" ]]; then
+    overrides+=("miverse_action_contract=${MIVERSE_ACTION_CONTRACT}")
 fi
 if [[ -n "${MOBILE_ACTION_CONTRACT:-}" ]]; then
     overrides+=("mobile_action_contract=${MOBILE_ACTION_CONTRACT}")

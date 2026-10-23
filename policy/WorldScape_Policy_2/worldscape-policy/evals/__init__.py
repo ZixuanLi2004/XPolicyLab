@@ -1,1 +1,0 @@
-"""WorldScape evaluation adapters."""

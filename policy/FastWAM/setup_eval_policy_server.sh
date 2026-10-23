@@ -75,7 +75,11 @@ echo -e "\033[33m[SERVER] policy_server_host=${policy_server_host} policy_server
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate "${policy_conda_env}"
 
-action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")
+if grep -Eq "^miverse:[[:space:]]*true" "${yaml_file}"; then
+    action_dim=45
+else
+    action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")
+fi
 echo -e "\033[33m[SERVER] action_dim=${action_dim}\033[0m"
 
 # Scope env vars to this server process only; never export them in the

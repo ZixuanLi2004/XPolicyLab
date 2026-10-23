@@ -269,7 +269,9 @@ def create_data_loader(
         shuffle=shuffle,
         num_batches=num_batches,
         num_workers=config.num_workers,
-        seed=config.seed,
+        # Multi-host: each process must draw a different slice of the shuffled stream,
+        # otherwise the data-parallel replicas would train on identical batches.
+        seed=config.seed + jax.process_index(),
         skip_norm_stats=skip_norm_stats,
         framework=framework,
     )
@@ -417,7 +419,15 @@ class TorchDataLoader:
             seed: The seed to use for shuffling the data.
         """
         if jax.process_count() > 1:
-            raise NotImplementedError("Data loading with multiple processes is not supported.")
+            # Multi-host: each process yields its own local shard of the global batch and
+            # jax.make_array_from_process_local_data (see __iter__) assembles the global
+            # array, so the batch axis stays consistent with the training mesh.
+            logging.info(
+                "Multi-process data loading: process %d/%d, local_batch_size=%d",
+                jax.process_index(),
+                jax.process_count(),
+                local_batch_size,
+            )
 
         if len(dataset) < local_batch_size:
             raise ValueError(f"Local batch size ({local_batch_size}) is larger than the dataset size ({len(dataset)}).")

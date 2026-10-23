@@ -28,14 +28,11 @@ Normalization mirrors ``Server.run``: the state is quantile-mapped to [-1, 1]
 and clamped, the action chunk is produced in gaussian-normalized space and
 denormalized with ``mean``/``std``, both masked by ``action_mask``.
 
-Vector layouts (from ``mibot/utils/io.py``; note state and action differ):
-  State - ``compose_state``, always joint space, shape (1, 60):
-    [0:7] left_arm_joint, [7:8] left_gripper,
-    [8:15] right_arm_joint, [15:16] right_gripper; every other slot is zero.
-  Action - ``ACTION_PARTS``, shape (30, 60), all values are RELATIVE deltas:
-    [0:3] left_ee_pos, [3:6] left_ee_aa, [6:7] left_gripper,
-    [8:11] right_ee_pos, [11:14] right_ee_aa, [14:15] right_gripper,
-    [16:17] waist, [17:20] base_vel; every other slot is padding.
+MiVerse uses the current official-state layout:
+  state (1, 60): arms at 0:7 and 8:15, hands at 16:28 and 28:40;
+  actions (30, 60): base-frame EE deltas at 0:6 and 8:14, absolute
+  base velocity [vx, vy, wz] at 17:20, and hand deltas at 20:44.
+  The 39 active action dimensions are read from the checkpoint config.
 
 Only ``action_type="ee"`` is supported: the packed action carries no arm-joint
 slots, so joint targets cannot be recovered from the model output.
@@ -50,51 +47,9 @@ from typing import Any
 import numpy as np
 import torch
 from PIL import Image
-from scipy.spatial.transform import Rotation
 
 from XPolicyLab.model_template import ModelTemplate
-
-_SUPPORTED_BENCH_NAMES = ("RoboDojo", "RoboDojo_real")
-
-# Per-bench EEF local axis redefinition matrices.
-# Convention: R_mibot = R_env @ P; position and gripper unchanged.
-
-# RoboDojo (sim): P = Rx(+90°) @ Rz(+90°), same for all robots.
-_EEF_REFRAME_P_ROBODOJO = np.array(
-    [[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]], dtype=np.float64
-)
-
-# RoboDojo_real: per-robot P matrices.
-_EEF_REFRAME_P_ROBODOJO_REAL = {
-    "piper_x": np.array(
-        [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64
-    ),
-    "piper": np.array(
-        [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64
-    ),
-    "arx_x5": np.array(
-        [[0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]], dtype=np.float64
-    ),
-}
-
-
-def _get_eef_reframe_p(bench_name: str, env_cfg_type: str) -> np.ndarray:
-    if bench_name == "RoboDojo":
-        return _EEF_REFRAME_P_ROBODOJO
-    elif bench_name == "RoboDojo_real":
-        if env_cfg_type not in _EEF_REFRAME_P_ROBODOJO_REAL:
-            raise ValueError(
-                f"[Xiaomi_Robotics_1] Unsupported env_cfg_type={env_cfg_type!r} "
-                f"for bench_name='RoboDojo_real'. "
-                f"Supported: {list(_EEF_REFRAME_P_ROBODOJO_REAL.keys())}"
-            )
-        return _EEF_REFRAME_P_ROBODOJO_REAL[env_cfg_type]
-    else:
-        raise ValueError(
-            f"[Xiaomi_Robotics_1] Unsupported bench_name={bench_name!r}. "
-            f"Supported: {list(_SUPPORTED_BENCH_NAMES)}"
-        )
-
+from XPolicyLab.utils.checkpoint_resolver import resolve_checkpoint_root
 
 def _add_xr1_to_path() -> str:
     """Put the vendored ``xr1`` package root on sys.path and return it.
@@ -151,43 +106,6 @@ def _extract_image(obs: dict, cam_keys: list[str]) -> np.ndarray:
     raise KeyError(f"No image found for camera keys: {cam_keys}")
 
 
-def _ee_pose_sim_to_mibot(
-    xyz_sim: np.ndarray, quat_wxyz_sim: np.ndarray, eef_reframe_p: np.ndarray
-):
-    """Convert an ee pose from environment frame to MiBot frame.
-
-    Only the EEF local axes are redefined (R_mibot = R_env @ P); the base-frame
-    position is unchanged. Returns (pos, rotm) as float64 for downstream math.
-    """
-    pos_m = np.asarray(xyz_sim, dtype=np.float64).reshape(3)
-    q = np.asarray(quat_wxyz_sim, dtype=np.float64).reshape(4)
-    rotm_sim = Rotation.from_quat(q[[1, 2, 3, 0]]).as_matrix()
-    rotm_m = rotm_sim @ eef_reframe_p
-    return pos_m, rotm_m
-
-
-def _ee_pose_mibot_to_sim(
-    pos_mibot: np.ndarray, rotm_mibot: np.ndarray, eef_reframe_p_inv: np.ndarray
-):
-    """Convert an ee pose from MiBot frame back to environment frame.
-
-    Inverse of :func:`_ee_pose_sim_to_mibot`: position unchanged, rotation
-    mapped by R_env = R_mibot @ P^T. Returns (xyz, quat_wxyz) as float32.
-    """
-    xyz = np.asarray(pos_mibot, dtype=np.float32).reshape(3)
-    rotm_sim = np.asarray(rotm_mibot, dtype=np.float64) @ eef_reframe_p_inv
-    quat_xyzw = Rotation.from_matrix(rotm_sim).as_quat()
-    quat_wxyz = quat_xyzw[[3, 0, 1, 2]].astype(np.float64)
-    if quat_wxyz[0] < 0:
-        quat_wxyz = -quat_wxyz
-    return xyz, quat_wxyz.astype(np.float32)
-
-
-# ---------------------------------------------------------------------------
-# Model class
-# ---------------------------------------------------------------------------
-
-
 class Model(ModelTemplate):
     def __init__(self, model_cfg: dict[str, Any]):
         self.model_cfg = model_cfg
@@ -202,8 +120,6 @@ class Model(ModelTemplate):
             )
         self.env_cfg_type = model_cfg["env_cfg_type"]
         self.bench_name = model_cfg["bench_name"]
-        self._eef_reframe_p = _get_eef_reframe_p(self.bench_name, self.env_cfg_type)
-        self._eef_reframe_p_inv = self._eef_reframe_p.T
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         self.default_prompt = model_cfg.get(
@@ -220,10 +136,9 @@ class Model(ModelTemplate):
         print(f"[Xiaomi_Robotics_1] xr1 package root: {xr1_root}", flush=True)
 
         from mibot.server.deploy import load_model, load_stats
-        from mibot.utils.io import ACTION_EPS, compose_state, denormalize_action
+        from mibot.utils.io import ACTION_EPS, denormalize_action
 
         self._action_eps = ACTION_EPS
-        self._compose_state = compose_state
         self._denormalize_action = denormalize_action
 
         model_dir = self._resolve_model_dir(model_cfg)
@@ -254,7 +169,7 @@ class Model(ModelTemplate):
 
     @staticmethod
     def _resolve_model_dir(model_cfg: dict[str, Any]) -> str:
-        """Resolve the checkpoint dir: explicit model_dir > checkpoints/<ckpt_name>.
+        """Resolve the shared checkpoint directory, then locate the XR1 artifacts.
 
         ``mibot.server.deploy.load_model`` expects the directory to hold
         ``config.py`` and ``last.ckpt/checkpoint/mp_rank_00_model_states.pt``.
@@ -262,23 +177,9 @@ class Model(ModelTemplate):
         bounded search for ``config.py`` is done before giving up.
         """
         policy_dir = os.path.dirname(os.path.abspath(__file__))
-        model_dir = model_cfg.get("model_dir")
-        ckpt_name = model_cfg.get("ckpt_name")
-
-        if not model_dir:
-            if not ckpt_name:
-                raise ValueError(
-                    "[Xiaomi_Robotics_1] neither model_dir nor ckpt_name is set "
-                    "in deploy.yml"
-                )
-            model_dir = os.path.join(policy_dir, "checkpoints", ckpt_name)
-
-        if not os.path.isabs(model_dir):
-            model_dir = os.path.join(policy_dir, model_dir)
-        if not os.path.isdir(model_dir):
-            raise ValueError(
-                f"[Xiaomi_Robotics_1] checkpoint dir does not exist: {model_dir}"
-            )
+        model_dir = str(resolve_checkpoint_root(
+            model_cfg, os.path.join(policy_dir, "checkpoints"), policy_dir=policy_dir
+        ))
 
         if os.path.isfile(os.path.join(model_dir, "config.py")):
             return model_dir
@@ -402,47 +303,11 @@ class Model(ModelTemplate):
         ]
 
         state = obs.get("state", {})
-        left_arm_joint = np.asarray(
-            state["left_arm_joint_state"], dtype=np.float32
-        ).reshape(-1)
-        left_gripper = np.asarray(
-            state["left_ee_joint_state"], dtype=np.float32
-        ).reshape(-1)[:1]
-        right_arm_joint = np.asarray(
-            state["right_arm_joint_state"], dtype=np.float32
-        ).reshape(-1)
-        right_gripper = np.asarray(
-            state["right_ee_joint_state"], dtype=np.float32
-        ).reshape(-1)[:1]
+        from mibot.utils.miverse_adapter import runtime_state_to_miverse75, state75_to_xiaomi60
 
-        # compose_state packs joints into [0:7]/[8:15] and grippers into
-        # [7:8]/[15:16], and rejects arms wider than 7 dof.
-        state_np = self._compose_state(
-            left_gripper=left_gripper,
-            left_joint=left_arm_joint,
-            right_gripper=right_gripper,
-            right_joint=right_arm_joint,
-        )  # (1, 60)
-
-        # The model predicts RELATIVE deltas w.r.t. the observed pose, expressed
-        # in the current ee frame (MiBot convention). Stash the absolute pose so
-        # _actions_to_xpl_format can restore absolute targets.
-        left_pose = np.asarray(state["left_ee_pose"], dtype=np.float64).reshape(7)
-        right_pose = np.asarray(state["right_ee_pose"], dtype=np.float64).reshape(7)
-        l_pos_m, l_rotm_m = _ee_pose_sim_to_mibot(
-            left_pose[:3], left_pose[3:7], self._eef_reframe_p
-        )
-        r_pos_m, r_rotm_m = _ee_pose_sim_to_mibot(
-            right_pose[:3], right_pose[3:7], self._eef_reframe_p
-        )
-        current_state = {
-            "left_ee_pos_mibot": l_pos_m,
-            "left_ee_rotm_mibot": l_rotm_m,
-            "left_gripper": float(left_gripper[0]),
-            "right_ee_pos_mibot": r_pos_m,
-            "right_ee_rotm_mibot": r_rotm_m,
-            "right_gripper": float(right_gripper[0]),
-        }
+        current75 = runtime_state_to_miverse75(state, allow_missing=False)
+        state_np = state75_to_xiaomi60(current75).reshape(1, 60).astype(np.float32)
+        current_state = {"miverse75": current75}
 
         instruction = self._get_instruction(obs)
 
@@ -546,66 +411,14 @@ class Model(ModelTemplate):
     def _actions_to_xpl_format(
         self, raw_actions: np.ndarray, current_state: dict[str, Any]
     ) -> list[dict[str, np.ndarray]]:
-        """Convert one relative action chunk [T, 60] into XPolicyLab actions.
+        """Restore every predicted step relative to the same current observation."""
+        from mibot.utils.miverse_adapter import xiaomi60_action_to_miverse75, unpack_miverse75
 
-        Reproduces ``mibot.utils.io.recover_action`` in the MiBot frame and then
-        maps the result back to the environment frame. Every packed slot is a
-        delta w.r.t. the observed pose (see ACTION_PARTS):
-            abs_pos_m  = current_pos_m + current_rotm_m @ delta_pos
-            abs_rotm_m = current_rotm_m @ Rot(delta_axis_angle)
-            abs_grip   = current_grip + delta_grip
-        Slots [0:3]/[3:6]/[6:7] are the left arm, [8:11]/[11:14]/[14:15] the
-        right; waist [16:17] and base [17:20] have no XPolicyLab counterpart on
-        the supported robots and are ignored.
-        """
-        action_list = []
-        for t in range(raw_actions.shape[0]):
-            a = raw_actions[t]
-
-            left_xyz, left_quat = self._restore_abs_ee(
-                a[0:3], a[3:6],
-                current_state["left_ee_pos_mibot"],
-                current_state["left_ee_rotm_mibot"],
-            )
-            right_xyz, right_quat = self._restore_abs_ee(
-                a[8:11], a[11:14],
-                current_state["right_ee_pos_mibot"],
-                current_state["right_ee_rotm_mibot"],
-            )
-            left_grip = current_state["left_gripper"] + float(a[6])
-            right_grip = current_state["right_gripper"] + float(a[14])
-
-            action_list.append({
-                "left_ee_pose": np.concatenate([left_xyz, left_quat]).astype(np.float32),
-                "right_ee_pose": np.concatenate([right_xyz, right_quat]).astype(np.float32),
-                "left_ee_joint_state": np.array([left_grip], dtype=np.float32),
-                "right_ee_joint_state": np.array([right_grip], dtype=np.float32),
-            })
-
-        return action_list
-
-    def _restore_abs_ee(
-        self,
-        delta_pos: np.ndarray,
-        delta_aa: np.ndarray,
-        current_pos_m: np.ndarray,
-        current_rotm_m: np.ndarray,
-    ):
-        """Restore an absolute ee pose (env frame) from an ee-frame delta.
-
-        Inverse of the packing in ``JsonDataset._arm_action``, all in the MiBot
-        frame, then converted back to the environment frame:
-            abs_pos_m  = current_pos_m + current_rotm_m @ delta_pos
-            abs_rotm_m = current_rotm_m @ Rot(delta_aa)
-        Returns (xyz, quat_wxyz) in the environment frame.
-        """
-        delta_pos = np.asarray(delta_pos, dtype=np.float64).reshape(3)
-        abs_pos_m = current_pos_m + current_rotm_m @ delta_pos
-        delta_rotm = Rotation.from_rotvec(
-            np.asarray(delta_aa, dtype=np.float64).reshape(3)
-        ).as_matrix()
-        abs_rotm_m = current_rotm_m @ delta_rotm
-        return _ee_pose_mibot_to_sim(abs_pos_m, abs_rotm_m, self._eef_reframe_p_inv)
+        current75 = np.asarray(current_state["miverse75"], dtype=np.float64)
+        return [
+            unpack_miverse75(xiaomi60_action_to_miverse75(action, current75))
+            for action in raw_actions
+        ]
 
     # ------------------------------------------------------------------
     # ModelTemplate interface

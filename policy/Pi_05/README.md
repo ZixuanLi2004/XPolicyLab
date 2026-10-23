@@ -1,73 +1,54 @@
-# Pi_05
+# Pi_05 for MiVerse
 
-**Contributor:** RoboDojo Team | **Paper:** Pi0.5 technical report | **arXiv:** TBD | **Original code:** https://github.com/Physical-Intelligence/openpi
+**Contributor:** RoboDojo Team | **Original code:** https://github.com/Physical-Intelligence/openpi
 
-`Pi_05` adapts Physical Intelligence's π0.5 policy to XPolicyLab/RoboDojo through the uv-managed OpenPI stack. Integration scripts live at this directory level; the vendored upstream implementation lives in `openpi/`.
+This adapter includes MiVerse evaluation, HDF5 conversion and full-parameter training. `openpi/` is the vendored model implementation. It uses M92UW joint45 control: two arms (7 each), two hands (12 each), waist (2), legs (2), and base velocity `[vx, vy, wz]`. State and action dimensions must match the checkpoint; old 75D checkpoints are unsupported by this configuration.
 
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+Shared launch conventions are in the [XPolicyLab README](../../README.md).
 
 ## Installation
 
 ```bash
-cd XPolicyLab/policy/Pi_05
+cd /personal/lzx/MiVerse/XPolicyLab/policy/Pi_05
 bash install.sh
-source openpi/.venv/bin/activate  # OpenPI is uv-managed; there is no policy conda env
 ```
 
-`eval.sh` arg 9 is not a conda env: pass `uv` (uses `deploy.yml` `policy_uv_env_path`) or an explicit OpenPI project path.
+OpenPI uses `openpi/.venv`. Evaluation argument 9 accepts `uv` or another OpenPI project directory containing `.venv`; the adapter still imports the model code from this checkout. Training/conversion can reuse an interpreter with `OPENPI_PYTHON=/path/to/python`.
 
 ## Data Processing
 
-Converts RoboDojo demonstrations into the LeRobot repo consumed by training. The dataset uses the official keys — `observation.state`, `action`, `observation.images.cam_high` / `cam_left_wrist` / `cam_right_wrist` ([official LeRobot conversion](../../README.md#official-lerobot-conversion)); the bundled script exists because conversion must run inside openpi's own pinned LeRobot environment, which sets the dataset version. The optional `expert_data_num` caps episodes for data conversion only (it is not part of checkpoint naming); the optional `raw_task_dirs` is a source task directory or comma-separated task list under `data/<bench_name>/` (defaults to `ckpt_name`). `raw_task_dirs` may also be passed directly as the 5th argument to write a differently named dataset from all of a task's demos, e.g. `bash process_data.sh RoboDojo stack_bowls_ablation arx_x5 joint stack_bowls`.
+```bash
+MIVERSE_RAW_ROOT=/path/to/raw/MiVerse \
+  bash process_data.sh MiVerse miverse_full miverse joint
+# Optional final arguments: max_episodes and raw_source_root.
+```
+
+The source is a directory containing task HDF5 episodes. If no path is provided, the converter uses `<MiVerse>/data/MiVerse`. It writes a **LeRobot v3.0** image dataset to `data/miverse_data`, then runs OpenPI normalization-statistics generation. The keys are `observation.state`, `action`, and `observation.images.cam_head/cam_left_wrist/cam_right_wrist`. The MiVerse converter differs from the generic exporter by selecting the 45 controllable dimensions and resizing RGB images to 224×224 using OpenCV linear interpolation. Image bytes are decoded only through the shared XPolicyLab decoder.
+
+`MIVERSE_REPO_ID` changes the dataset ID; `OPENPI_HF_LEROBOT_HOME` changes the dataset parent directory. An existing dataset is preserved unless `MIVERSE_OVERWRITE=true` is set. Normalization statistics are generated under `openpi/assets/pi05_miverse_full/<repo_id>/norm_stats.json`; they must describe the dataset used for training. For an already converted dataset, run:
 
 ```bash
-cd XPolicyLab/policy/Pi_05
-bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expert_data_num] [raw_task_dirs]
-
-# Example: convert stack_bowls demos for arx_x5 joint control
-bash process_data.sh RoboDojo stack_bowls arx_x5 joint
-
-# Example: create a 50-episode ablation while reading from the original task data
-bash process_data.sh RoboDojo stack_bowls_50ep arx_x5 joint 50 stack_bowls
+cd openpi
+HF_LEROBOT_HOME=../data .venv/bin/python scripts/compute_norm_stats.py \
+  --config-name pi05_miverse_full --repo-id miverse_data
 ```
 
 ## Training
 
 ```bash
-cd XPolicyLab/policy/Pi_05
-bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>
-
-# Example: train a cotrain run on GPU 0 (comma-separated gpu_id for multi-GPU)
-bash train.sh RoboDojo cotrain arx_x5 joint 0 0
+bash train.sh MiVerse miverse_full miverse joint 0 0,1,2,3
 ```
 
-Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`; at eval time `ckpt_name` may be the short run name (auto-combined into that directory name), the full run-directory name, or a path to a checkpoint directory. By default training reads the LeRobot repo produced by `process_data.sh` (`<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`); override with `OPENPI_LEROBOT_REPO_ID` when reusing an existing dataset. `train.sh` sets `fsdp_devices=1` for one visible GPU and `2` for multi-GPU by default (override with `OPENPI_FSDP_DEVICES`).
+Defaults match the source MiVerse recipe: `pi05_miverse_full`, action horizon 50, global batch 128, 60,000 steps, mean/std normalization, full fine-tuning from `pi05_base`, and new 45D state/action projections. Pretrained base weights are downloaded by OpenPI when needed.
+
+`OPENPI_LEROBOT_REPO_ID` must match the conversion's `MIVERSE_REPO_ID` (both default to `miverse_data`). `OPENPI_BATCH_SIZE`, `OPENPI_FSDP_DEVICES`, `OPENPI_TRAIN_CONFIG_NAME` and `OPENPI_LOCAL_CACHE_ROOT` override the respective settings. Checkpoints go to `checkpoints/MiVerse-<ckpt_name>-miverse-joint-<seed>/`. The inherited training entry uses `--overwrite`, so choose a new checkpoint name when retaining a previous run.
 
 ## Evaluation
 
 ```bash
-cd XPolicyLab/policy/Pi_05
-bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
-  <policy_gpu_id> <env_gpu_id> <policy_uv_env> <eval_env_conda_env>
-
-# Example: evaluate a trained cotrain checkpoint on stack_bowls
-bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 uv <eval_env_conda_env>
+bash eval.sh MiVerse place_fruit_basket miverse_full miverse joint 0 0 1 uv RoboDojo
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+The checkpoint argument may be a short run name, full run directory name, or absolute directory. `deploy.yml` selects `pi05_miverse_full`, `repo_id: miverse_data`, `miverse: true` and checkpoint step 59999. Set `repo_id` to the training dataset's asset ID when using another dataset. The saved checkpoint must contain parameters and its own normalization assets.
 
-## Configuration
-
-`deploy.yml` keys to check before evaluation: `checkpoint_num`, `result_dir`, `obs_transform_pipeline`, `policy_uv_env_path`, `train_config_name` (must match the config used by `train.sh`), `repo_id`.
-
-Environment variables used by the adapter scripts:
-
-| Variable | Notes |
-|---|---|
-| `OPENPI_LEROBOT_REPO_ID` | Overrides the LeRobot repo id used by `train.sh`; defaults to `<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`. |
-| `OPENPI_FSDP_DEVICES` | Overrides the FSDP device count passed to OpenPI training. |
-| `OPENPI_TRAIN_CONFIG_NAME` | Overrides the training config; defaults to `pi05_base_aloha_full_sim_arx-x5_seed_0`. |
-| `OPENPI_DATA_MODE` | Data-processing mode passed to `openpi/scripts/process_data.py`; defaults to `image`. |
-| `OPENPI_LOCAL_CACHE_ROOT` | Per-host local cache root for the HF datasets / JAX compilation caches; defaults to `/tmp/openpi-cache-$(hostname)`. |
-
-`OPENPI_ROOT` and `OPENPI_SRC` are additional overrides consumed by the local scripts.
+The server accepts already-decoded RGB observations. The returned root linear/angular velocities have three elements; unmodeled `vz/wx/wy` are zero. Batch observations are supported. The policy environment and simulator environment are separate. `EVAL_ENV_TYPE=debug` checks transport using an installed policy and a real checkpoint; no model-free inference is provided.

@@ -1,56 +1,51 @@
-# FastWAM
+# FastWAM for MiVerse
 
-**Contributor:** RoboDojo Team | **Paper:** Fast-WAM: Do World Action Models Need Test-time Future Imagination? | **arXiv:** https://arxiv.org/abs/2603.16666 | **Original code:** https://github.com/yuantianyuan01/FastWAM
+**Contributor:** RoboDojo Team | **Original code:** https://github.com/yuantianyuan01/FastWAM
 
-`FastWAM` adapts the Fast-WAM world-action model to XPolicyLab/RoboDojo. Integration scripts live at this directory level; the vendored upstream implementation lives in `FastWAM/`.
-
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+This adapter includes MiVerse evaluation, data preparation and training. `FastWAM/` contains the vendored implementation. It uses the same M92UW joint45 dataset as Pi_05. The [XPolicyLab README](../../README.md) describes shared launch conventions.
 
 ## Installation
 
-Read `INSTALLATION.md` before first use; it covers setup that `install.sh` cannot fully express, such as external checkpoints, system packages, manual fallback steps, and multi-environment runtime notes.
-
 ```bash
-cd XPolicyLab/policy/FastWAM
+cd /personal/lzx/MiVerse/XPolicyLab/policy/FastWAM
 bash install.sh
-conda activate <policy_env>  # e.g. fastwam
+conda activate fastwam
 ```
+
+Read [INSTALLATION.md](INSTALLATION.md) for pretrained Wan/T5 weights and ActionDiT preprocessing. Downloaded weights, datasets, environment directories and logs are not part of the migration. The released RoboTwin task checkpoint/statistics are examples, not MiVerse evaluation weights.
 
 ## Data Processing
 
-No top-level `process_data.sh`. Training consumes a prepared LeRobot v2.1 dataset directly (see Training below); camera keys are discovered from the dataset metadata, so an export produced by the official `scripts/transform_lerobot_v21_format.py` ([Official LeRobot conversion](../../README.md#official-lerobot-conversion)) is the expected shape. Use the upstream FastWAM tooling under `FastWAM/` for the remaining preparation (dataset stats, text-embedding cache).
+```bash
+# Activate FastWAM; Pi_05's interpreter must also be installed for conversion.
+MIVERSE_RAW_ROOT=/path/to/raw/MiVerse \
+  bash process_data.sh MiVerse miverse_full miverse joint
+```
+
+This reuses `../Pi_05/data/miverse_data` when it exists. Otherwise it calls Pi_05's MiVerse HDF5 converter in `openpi/.venv`, then runs FastWAM's T5 text-embedding preparation in the active FastWAM environment. Optional final arguments are `max_episodes` and `raw_source_root`. `OPENPI_PYTHON` selects an existing Pi_05 interpreter.
+
+The shared dataset is **LeRobot v3.0**, with 45D `observation.state`/`action` and RGB image keys `observation.images.cam_head/cam_left_wrist/cam_right_wrist`. The custom MiVerse converter selects 45 controllable dimensions and produces 224×224 images; FastWAM then applies its original 240×320 resize and three-camera mosaic. No additional channel swap is performed.
+
+`FASTWAM_DATASET_ID` defaults to `miverse_data`; `FASTWAM_DATASET_DIR` overrides the dataset directory. T5 embeddings go to `FastWAM/data/text_embeds_cache/xpolicylab/<dataset_id>/`. If existing normalization stats are available, use `FASTWAM_STATS_PATH`; otherwise training computes statistics with the upstream FastWAM dataset implementation and writes `dataset_stats.json` into the run directory.
 
 ## Training
 
 ```bash
-cd XPolicyLab/policy/FastWAM
-bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id> [num_gpus]
-
-# Example: train a cotrain run on four GPUs (the upstream model is large; multi-GPU is recommended)
-bash train.sh RoboDojo cotrain arx_x5 joint 0 0,1,2,3
+bash train.sh MiVerse miverse_full miverse joint 0 0,1,2,3
 ```
 
-Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`; at eval time `ckpt_name` may be the short run name, the full run-directory name, or a path to a checkpoint directory. Training expects a prepared LeRobot v2.1 dataset under `data/<dataset_id>/lerobot/` with `data/<dataset_id>/dataset_stats.json`, a matching T5 text embedding cache under `FastWAM/data/text_embeds_cache/xpolicylab/<dataset_id>/`, and the ActionDiT backbone at `FastWAM/checkpoints/ActionDiT_linear_interp_Wan22_alphascale_1024hdim.pt`. `<dataset_id>` defaults to `<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>` (override with `FASTWAM_DATASET_ID`), and `train.sh` prints the upstream commands that generate the text cache and backbone when they are missing. The process count is inferred from a comma-separated `gpu_id` unless passed as the optional 7th argument `num_gpus`. The wrapper defaults to `FASTWAM_BATCH_SIZE=8`; you may still need to lower it or increase the GPU count depending on available memory. `train.sh` sets `DIFFSYNTH_MODEL_BASE_PATH` to `FastWAM/checkpoints` automatically.
+The optional seventh argument is the process count. Defaults retain the source MiVerse recipe: task `miverse_uncond_3cam_384_1e-4`, batch 16, five epochs, AdamW learning rate `1e-4`, weight decay `1e-2`, cosine schedule, accumulation 1, bf16 and clipping 1.0. The action scheduler uses training/inference shift 1.0; the video scheduler uses 5.0. No extra `train_shift` deployment override is required.
+
+Overrides include `FASTWAM_BATCH_SIZE`, `FASTWAM_GRADIENT_ACCUMULATION_STEPS`, `FASTWAM_NUM_WORKERS`, `FASTWAM_NUM_EPOCHS`, `FASTWAM_MAX_STEPS`, and `FASTWAM_MOT_CHECKPOINT_MIXED_ATTN`. Training writes `checkpoints/MiVerse-<ckpt_name>-miverse-joint-<seed>/`, including the normalization statistics required for evaluation.
 
 ## Evaluation
 
 ```bash
-cd XPolicyLab/policy/FastWAM
-bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
-  <policy_gpu_id> <env_gpu_id> <policy_conda_env> <eval_env_conda_env>
-
-# Example: evaluate a trained cotrain checkpoint on stack_bowls
-bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_conda_env> <eval_env_conda_env>
+bash eval.sh MiVerse place_fruit_basket miverse_full miverse joint 0 0 1 fastwam RoboDojo
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+The checkpoint argument may be a short run name, full run directory, or absolute path. The launcher selects the latest `checkpoints/weights/step_*.pt` and the run's `dataset_stats.json`. `FASTWAM_CHECKPOINT_PATH` and `FASTWAM_DATASET_STATS_PATH` override these files.
 
-## Configuration
+`deploy.yml` defaults to joint45, 10 denoising steps, 24 executed steps per inference chunk, CFG 1.0 and inference action shift 1.0 from the task config (`sigma_shift: null`). Use a MiVerse joint45 checkpoint and its matching stats. Old 75D checkpoints are unsupported. Unmodeled root velocity components are returned as zero; batched observations and reset are supported.
 
-`deploy.yml` keys to check before evaluation: `action_dim`, `checkpoint_path`, `dataset_stats_path`, `sim_cfg_name`, `sim_task`, `device`, `mixed_precision`, `action_horizon`, `replan_steps`, `num_inference_steps`, `sigma_shift`.
-
-Optional policy-specific environment overrides used by the scripts: `FASTWAM_DATASET_ID`, `FASTWAM_BATCH_SIZE`, `FASTWAM_GRADIENT_ACCUMULATION_STEPS`, `FASTWAM_NUM_WORKERS`, `FASTWAM_NUM_EPOCHS`, `FASTWAM_CKPT_SETTING`, `FASTWAM_CKPT_ROOT`, `FASTWAM_CHECKPOINT_PATH`, `FASTWAM_DATASET_STATS_PATH`, `FASTWAM_ALLOW_DUMMY_POLICY`.
-
-## Notes
-
-- Use the same `action_type` for training and evaluation. The reference FastWAM path follows XPolicyLab's `pack_robot_state` / `unpack_robot_state` helpers directly and does not add policy-local `ee` pose conversion.
+`FASTWAM_ALLOW_DUMMY_POLICY=true` is an existing wiring-debug option that returns zero actions. It does not validate trained inference. Real checkpoint loading, training and simulator evaluation require the corresponding environments and weights.

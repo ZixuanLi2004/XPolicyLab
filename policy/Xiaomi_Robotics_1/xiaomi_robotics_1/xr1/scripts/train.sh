@@ -6,7 +6,7 @@ export MLP_WORKER_GPU=${RESOURCE_GPU:-1}
 export MLP_ROLE_INDEX=${RANK:-0}
 export MLP_WORKER_0_HOST=${MASTER_ADDR:-localhost}
 export MLP_WORKER_0_PORT=${MASTER_PORT:-29500}
-export PYTHONPATH=$(pwd):${PYTHONPATH}
+export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 export MAX_LENGTH=${MAX_LENGTH:-20000}
 
 set -e -x
@@ -18,4 +18,4 @@ torchrun \
     --master_addr=$MLP_WORKER_0_HOST \
     --master_port=$MLP_WORKER_0_PORT \
     tools/train.py \
-    $@
+    "$@"

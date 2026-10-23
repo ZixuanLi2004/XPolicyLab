@@ -1,5 +1,7 @@
 data/
+!FastWAM/configs/data/
 checkpoints/
 FastWAM/checkpoints/
 FastWAM/runs/
-FastWAM/data/text_embeds_cache/
+FastWAM/data/
+!FastWAM/configs/data/text_embeds_cache/

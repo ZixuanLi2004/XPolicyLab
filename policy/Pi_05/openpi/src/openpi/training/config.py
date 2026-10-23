@@ -180,6 +180,8 @@ class DataConfigFactory(abc.ABC):
     assets: AssetsConfig = dataclasses.field(default_factory=AssetsConfig)
     # Base config that will be updated by the factory.
     base_config: tyro.conf.Suppress[DataConfig | None] = None
+    # Optional override for datasets whose stats do not contain q01/q99.
+    use_quantile_norm_override: bool | None = None
 
     @abc.abstractmethod
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
@@ -193,7 +195,11 @@ class DataConfigFactory(abc.ABC):
             repo_id=repo_id,
             asset_id=asset_id,
             norm_stats=self._load_norm_stats(epath.Path(self.assets.assets_dir or assets_dirs), asset_id),
-            use_quantile_norm=model_config.model_type != ModelType.PI0,
+            use_quantile_norm=(
+                self.use_quantile_norm_override
+                if self.use_quantile_norm_override is not None
+                else model_config.model_type != ModelType.PI0
+            ),
         )
 
     def _load_norm_stats(self, assets_dir: epath.Path, asset_id: str | None) -> dict[str, _transforms.NormStats] | None:
@@ -736,6 +742,31 @@ _CONFIGS = [
         batch_size=256,
         fsdp_devices=2,
         num_train_steps=60000,
+    ),
+    # MiVerse m92uw: selected 45D controllable state/action and three RGB cameras.
+    # Full-parameter training; the 45D projection layers are randomly initialized because
+    # the released pi05_base checkpoint has 32D action/state projections.
+    TrainConfig(
+        name="pi05_miverse_full",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=45, action_horizon=50, max_token_len=256),
+        data=LeRobotWujiDataConfig(
+            repo_id="miverse_data",
+            assets=AssetsConfig(asset_id="miverse_data"),
+            base_config=DataConfig(prompt_from_task=True),
+            base_image_key="observation.images.cam_head",
+            extra_delta_transform=False,
+            use_quantile_norm_override=False,
+        ),
+        weight_loader=weight_loaders.PartialCheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi05_base/params"
+        ),
+        freeze_filter=nnx.Nothing,
+        # Full fine-tuning on one 8-GPU host with the validated global batch size.
+        batch_size=128,
+        fsdp_devices=2,
+        num_workers=12,
+        num_train_steps=60_000,
+        ema_decay=0.99,
     ),
     # Tianji Marvin + dual Wuji Hand Gen1 (54D). Set data.repo_id to your LeRobot dataset
     # before compute_norm_stats / train. Skip RoboDojo process_data.py; use wuji mcap→LeRobot.

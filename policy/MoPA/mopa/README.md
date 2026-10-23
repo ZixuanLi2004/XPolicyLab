@@ -104,5 +104,5 @@ Actions are returned in their original physical units. `states` must use the
 saved layout and camera arrays must already be RGB. If the Qwen assets move,
 provide `Policy(..., base_vlm="/new/path")` with the same asset contents.
 The checkpoint format is `xpl-mopa-query-dmot-v2`; this package uses
-`mobile_m92uw` as its mobile layout tag. Older labels with the same explicit
+`miverse_m92uw` as its mobile layout tag. Older labels with the same explicit
 mobile dimension metadata remain readable.

@@ -15,6 +15,7 @@ class BaseDataModule(LightningDataModule):
         super().__init__()
         self.params: Config = params
         self.batch_size: int = params.train_datasets.get("batch_size", 16)
+        self.num_workers: int = int(params.get("num_workers", params.train_datasets.get("num_workers", 8)))
         self.collate_fn = CustomCollate()
         self.train_set = None
 
@@ -30,7 +31,7 @@ class BaseDataModule(LightningDataModule):
             self.train_set,
             batch_size=self.batch_size,
             sampler=sampler,
-            num_workers=8,
+            num_workers=self.num_workers,
             prefetch_factor=4,
             collate_fn=self.collate_fn,
             persistent_workers=True,

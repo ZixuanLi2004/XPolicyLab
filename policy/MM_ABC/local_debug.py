@@ -1,7 +1,7 @@
 """In-process debug for the MM_ABC adapter: no server, no port.
 
 Drives ``Model`` through reset / update_obs / get_action (and the batch path)
-with synthetic Mobile observations and validates every returned action.
+with synthetic MiVerse observations and validates every returned action.
 
     PYTHONPATH=<workspace>:<workspace>/XPolicyLab \\
       python -m XPolicyLab.policy.MM_ABC.local_debug                     # mock
@@ -49,7 +49,7 @@ def main() -> None:
         for action in chunk:
             validate_action(action, model.adapter.action_key_style)
     print(f"[batch] 3 envs x {len(batch[0])} actions")
-    print("\nLOCAL DEBUG PASSED: action keys and shapes match the Mobile contract.")
+    print("\nLOCAL DEBUG PASSED: action keys and shapes match the MiVerse contract.")
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ XPL_ROOT = Path(__file__).resolve().parents[2]
 if str(XPL_ROOT.parent) not in sys.path:
     sys.path.insert(0, str(XPL_ROOT.parent))
 
-from mopa.integrations.xpolicylab import process_data_main
+from XPolicyLab.policy.MoPA.mopa.integrations.xpolicylab import process_data_main
 
 
 if __name__ == "__main__":

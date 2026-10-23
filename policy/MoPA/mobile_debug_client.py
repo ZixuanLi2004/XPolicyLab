@@ -11,7 +11,7 @@ import numpy as np
 from client_server.ws import WsModelClient
 from XPolicyLab.utils.process_data import encode_image_bit
 
-from mopa.data import mobile
+from XPolicyLab.policy.MoPA.mopa.data import mobile
 
 
 CAMERAS = ("cam_left_wrist", "cam_right_wrist", "head_infra1")

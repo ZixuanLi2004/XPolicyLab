@@ -16,14 +16,14 @@ source "${POLICY_DIR}/resolve_python.sh"
 export MMABC_PYTHON=${MMABC_PYTHON:-$(resolve_python "${MMABC_ENV:-none}")}
 
 case "${MODE:-scratch}" in
-    scratch)  default_config=configs/train/mobile.yaml ;;
-    pretrain) default_config=configs/train/mobile_pretrain.yaml ;;
+    scratch)  default_config=configs/train/miverse.yaml ;;
+    pretrain) default_config=configs/train/miverse_pretrain.yaml ;;
     *) echo "[MM_ABC] MODE must be scratch or pretrain, got ${MODE}" >&2; exit 1 ;;
 esac
 TRAIN_CONFIG=${TRAIN_CONFIG:-${default_config}}
 
-if [[ "${env_cfg_type}" != "m92uw" || "${action_type}" != "joint" ]]; then
-    echo "[MM_ABC] supports env_cfg_type=m92uw action_type=joint" >&2
+if [[ "${bench_name}" != "MiVerse" || ( "${env_cfg_type}" != "m92uw" && "${env_cfg_type}" != "miverse" ) || "${action_type}" != "joint" ]]; then
+    echo "[MM_ABC] supports bench_name=MiVerse env_cfg_type=m92uw|miverse action_type=joint" >&2
     exit 1
 fi
 

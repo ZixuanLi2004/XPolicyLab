@@ -9,7 +9,8 @@ MODEL_DIM = 75
 RAW_DIM = 69
 FPS = 30.0
 ROBOT_TYPE = "m92uw"
-EMBODIMENT_TAG = "mobile_m92uw"
+EMBODIMENT_TAG = "miverse_m92uw"
+ENV_CFG_TYPES = frozenset({"m92uw", "miverse", "miverse_m92uw", "mobile", "mobile_m92uw"})
 
 # HDF5 key, width, and whether the value is a [x,y,z,qw,qx,qy,qz] pose.
 KEYS = (
@@ -76,10 +77,23 @@ def uses_hdf5(metadata: Mapping[str, object]) -> bool:
 
 
 def decode_camera_frame(image_bits) -> np.ndarray:
-    """Decode stored image buffers through the shared RGB decoder."""
-    from XPolicyLab.utils.process_data import decode_image_bit
+    """Decode MiVerse standard JPEGs through the shared RGB decoder.
 
-    return decode_image_bit(image_bits)
+    Original MiVerse JPEGs predate XPL's RGB marker. Add the marker in memory
+    so the shared decoder recognizes their standard RGB convention. Source
+    HDF5 buffers are never rewritten.
+    """
+    from XPolicyLab.utils.process_data import (
+        _has_rgb_marker, _insert_rgb_marker, _normalize_image_buffer,
+        decode_image_bit,
+    )
+
+    buffer = bytes(_normalize_image_buffer(image_bits))
+    if not buffer.startswith(b"\xff\xd8"):
+        raise ValueError("MiVerse camera frame must be a JPEG buffer")
+    if not _has_rgb_marker(buffer):
+        buffer = _insert_rgb_marker(buffer)
+    return decode_image_bit(buffer)
 
 
 def _quat_to_matrix(q: np.ndarray) -> np.ndarray:

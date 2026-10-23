@@ -4,7 +4,7 @@ XPolicyLab wraps each robot policy as a self-contained adapter under `policy/<PO
 server imports it as `XPolicyLab.policy.<POLICY>.model`, so this checkout is always used as a
 package inside a parent workspace — never as the top-level project.
 
-- Submission standard: [CONTRIBUTING.md](CONTRIBUTING.md). Reference adapter: `policy/demo_policy/`.
+- Submission standard: [CONTRIBUTING.md](CONTRIBUTING.md). Reference adapter: `templates/policy/`.
   Data formats: [README](README.md#-standard-data-formats).
 - Two skills carry the end-to-end workflows — `xpolicylab-model-integration` (build an adapter) and
   `xpolicylab-adapter-check` (audit one before a PR). They live in `.agents/skills/`, which
@@ -93,5 +93,5 @@ alone, and works in a standalone checkout that has no outer `env_cfg/` tree.
 ## deploy.yml
 
 `policy_name` must equal the directory name. Keep the full key set from
-`policy/demo_policy/deploy.yml` — including `protocol: ws`, `host` and `port` — even where the
+`templates/policy/deploy.yml` — including `protocol: ws`, `host` and `port` — even where the
 scripts have a default; per-run fields are overridden at launch.

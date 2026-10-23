@@ -5,7 +5,7 @@ description: Audit a policy/<POLICY>/ adapter for XPolicyLab standard compliance
 
 # XPolicyLab Adapter Check
 
-Audit `policy/<POLICY>/` against the submission standard and report pass/fail per item with concrete fixes. The full standard lives in `CONTRIBUTING.md` at the repo root — read it before auditing; the list below is the executable summary. `policy/demo_policy/` is the reference implementation.
+Audit `policy/<POLICY>/` against the submission standard and report pass/fail per item with concrete fixes. The full standard lives in `CONTRIBUTING.md` at the repo root — read it before auditing; the list below is the executable summary. `templates/policy/` is the reference implementation.
 
 This is a **read-only audit**: report the fixes, do not apply them unless the user asks. If the user did not name a policy, list the adapters that changed on the current branch and ask which to audit.
 
@@ -27,7 +27,7 @@ Run commands from the repo root unless noted.
    - image bits that get stored or published without going through `encode_image_bit`
    - vendor conversion entry points that XPolicyLab data actually flows through (e.g. `policy/Pi_05/openpi/scripts/process_data.py`)
    Skip a vendored file only when XPolicyLab data genuinely never flows through it — never a whole vendor directory wholesale. A `cv2.imencode` whose output is decoded again inside the same process (a compression simulator, a test client) is fine; one whose output is written to disk or sent to another system is not.
-5. **Scripts** — `eval.sh` consumes the 10 standard args (`bench_name task_name ckpt_name env_cfg_type action_type seed policy_gpu_id env_gpu_id policy_env_or_uv_path eval_env_conda_env`) and stays aligned with `policy/demo_policy/eval.sh`; extra args must be documented in the policy README.
+5. **Scripts** — `eval.sh` consumes the 10 standard args (`bench_name task_name ckpt_name env_cfg_type action_type seed policy_gpu_id env_gpu_id policy_env_or_uv_path eval_env_conda_env`) and stays aligned with `templates/policy/eval.sh`; extra args must be documented in the policy README.
 6. **Static checks**:
 
    ```bash
@@ -72,7 +72,7 @@ Run commands from the repo root unless noted.
 ## Report format
 
 - One line per check: ✅ pass / ❌ fail / ⚠️ not run, with a short reason.
-- For each ❌: name the file and the exact change, pointing to `policy/demo_policy` where useful.
+- For each ❌: name the file and the exact change, pointing to `templates/policy` where useful.
 - End with a verdict: **ready for PR** or **needs fixes** (list blocking items first).
 - Then offer to apply the fixes.
 

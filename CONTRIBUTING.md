@@ -8,10 +8,10 @@ Two bundled Agent Skills automate most of this: `xpolicylab-model-integration` b
 
 The fastest route is to copy the reference adapter, keep the XPolicyLab boundary small, and debug before touching a simulator:
 
-1. **Read [policy/demo_policy](policy/demo_policy/README.md)** — `model.py`, `deploy.py`, `deploy.yml`, and the `eval.sh` / `setup_eval_policy_server.sh` / `setup_eval_env_client.sh` trio.
+1. **Read [templates/policy](templates/policy/README.md)** — `model.py`, `deploy.py`, `deploy.yml`, and the `eval.sh` / `setup_eval_policy_server.sh` / `setup_eval_env_client.sh` trio.
 2. **Scaffold** with `bash scripts/create_policy.sh <POLICY_NAME>`, then fill in its README.
 3. **Implement `model.py` first**, keeping `bench_name`, `task_name`, `ckpt_name`, `env_cfg_type`, `action_type`, and `seed` consistent across data, training, and eval (README, [Common Workflow](README.md#-common-workflow)).
-4. **Put deployment defaults in `deploy.yml`** and keep `deploy.py` aligned with `demo_policy/deploy.py` unless the environment loop truly differs.
+4. **Put deployment defaults in `deploy.yml`** and keep `deploy.py` aligned with `templates/policy/deploy.py` unless the environment loop truly differs.
 5. **Run [Testing](#testing)**, then move to `EVAL_ENV_TYPE=sim` or a split-machine deployment (README, [Deployment Flow](README.md#-deployment-flow)).
 
 Eval-only submissions are accepted when training code cannot be open-sourced yet: say so in the PR, notify the maintainers ([Contact](README.md#-contact)), and share a timeline. For leaderboard evaluation, attach a checkpoint download script (Hugging Face or ModelScope preferred).
@@ -20,7 +20,7 @@ Eval-only submissions are accepted when training code cannot be open-sourced yet
 
 ### Files
 
-Scaffold with `bash scripts/create_policy.sh <POLICY>` (copies `policy/demo_policy/`), then keep:
+Scaffold with `bash scripts/create_policy.sh <POLICY>` (copies `templates/policy/`), then keep:
 
 ```text
 policy/<POLICY>/
@@ -83,7 +83,7 @@ No channel conversion belongs in conversion, training, or eval code; only `utils
 
 ### `deploy.yml`
 
-`policy_name` must equal the directory name — the server imports `XPolicyLab.policy.<policy_name>.model`, and the setup scripts derive the name from the directory. Keep `protocol: ws` (`legacy_tcp` is for unmigrated legacy adapters only). Per-run fields are overridden by the setup scripts; put stable defaults here. Reference (`policy/demo_policy/deploy.yml`):
+`policy_name` must equal the directory name — the server imports `XPolicyLab.policy.<policy_name>.model`, and the setup scripts derive the name from the directory. Keep `protocol: ws` (`legacy_tcp` is for unmigrated legacy adapters only). Per-run fields are overridden by the setup scripts; put stable defaults here. Reference (`templates/policy/deploy.yml`):
 
 ```yaml
 policy_name: demo_policy
@@ -111,11 +111,11 @@ bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <
   <policy_gpu_id> <env_gpu_id> <policy_env_or_uv_path> <eval_env_conda_env>
 ```
 
-`eval.sh` starts the policy server, waits for it, runs the environment client, and cleans up — keep it aligned with `policy/demo_policy/eval.sh`; document any extra arguments in the policy README. Checkpoints resolve to `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/` unless the policy README documents another layout.
+`eval.sh` starts the policy server, waits for it, runs the environment client, and cleans up — keep it aligned with `templates/policy/eval.sh`; document any extra arguments in the policy README. Checkpoints resolve to `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/` unless the policy README documents another layout.
 
 ### Policy README
 
-All policy READMEs share one template — [policy/demo_policy/README.md](policy/demo_policy/README.md) is the minimal reference, [policy/AHA_WAM/README.md](policy/AHA_WAM/README.md) shows a complex adapter (model assets, custom environment variables):
+All policy READMEs share one template — [templates/policy/README.md](templates/policy/README.md) is the minimal reference, [upstream AHA_WAM adapter](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/AHA_WAM/README.md) shows a complex adapter (model assets, custom environment variables):
 
 1. **Header**: `**Contributor:** ... | **Paper:** ... | **arXiv:** ... | **Original code:** ...`, then 1–3 sentences on the model and what the adapter supports; mention vendored upstream directories here.
 2. **Pointer paragraph** (verbatim): shared conventions link to the root README, official results link to the [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
@@ -154,7 +154,7 @@ export EVAL_ENV_TYPE=debug
 bash eval.sh RoboDojo stack_bowls <ckpt_name> arx_x5 joint 0 0 0 <policy_env> base
 ```
 
-The run must reach `[MAIN] eval finished` with no tracebacks. The debug client sends plain image arrays by default; re-run with `DEBUG_OBS_ENCODED=1` to make it send encoded camera colors instead — a JPEG buffer, raw bytes, and a plain array across the three cameras — which exercises the server-side decode path that real environment clients rely on. For a quick smoke test, `policy/demo_policy` accepts placeholder env names such as `base`.
+The run must reach `[MAIN] eval finished` with no tracebacks. The debug client sends plain image arrays by default; re-run with `DEBUG_OBS_ENCODED=1` to make it send encoded camera colors instead — a JPEG buffer, raw bytes, and a plain array across the three cameras — which exercises the server-side decode path that real environment clients rely on. For a quick smoke test, `templates/policy` accepts placeholder env names such as `base`.
 
 **3. Simulator evaluation** — recommended for every PR and required before a leaderboard entry is published: run the same `eval.sh` with `EVAL_ENV_TYPE=sim` (or unset) inside a RoboDojo / RoboTwin workspace and record task success rates.
 
@@ -165,13 +165,13 @@ The run must reach `[MAIN] eval finished` with no tracebacks. The debug client s
 ```text
 Integrate <POLICY_NAME> into XPolicyLab.
 
-Use policy/demo_policy as the reference.
+Use templates/policy as the reference.
 1. Inspect the upstream model's inference API and dependencies.
 2. Create or update policy/<POLICY_NAME>/README.md with install, checkpoint, train, and eval commands.
 3. Implement install.sh and, if needed, process_data.sh and train.sh. Omitting any of the three requires a declared exception in the README.
 4. Implement model.py with Model.__init__, update_obs, get_action, reset, and batch methods. model.py never decodes.
 5. Offline conversion/training decodes XPolicyLab images only via decode_image_bit and writes them only via encode_image_bit. Stored bits come in two byte formats; only these functions tell them apart, and both give you RGB. Never swap channels yourself.
-6. Keep deploy.py aligned with policy/demo_policy/deploy.py.
+6. Keep deploy.py aligned with templates/policy/deploy.py.
 7. Put deployment defaults in deploy.yml, keeping the standard key set (protocol: ws, host, port, ...).
 8. Run EVAL_ENV_TYPE=debug eval.sh and fix shape/action-key/server errors.
 9. Summarize supported action_type, env_cfg_type, checkpoint layout, and remaining limitations.

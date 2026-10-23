@@ -25,7 +25,7 @@ Building Scalable Infrastructure for Robot Learning Workshop，授予全体 XPol
 
 
 
-XPolicyLab 是策略代码与评测环境之间的共享层。每个模型的依赖、权重与训练配方放在 `policy/<POLICY>/`；XPolicyLab 负责那些枯燥但容易出错的部分 —— 服务化、观测/动作契约，以及评测接线。截至 2026 年 10 月，生态已接入 **69 个机器人策略**，覆盖 VLA、world-action、模仿学习与记忆增强等家族；同一套 adapter 可服务 RoboTwin、RoboDojo 仿真，以及标准化真机评测。
+当前仓库是 **MiVerse 专用版 XPolicyLab**，包含 6 个策略。保留 MM_ABC、MoPA，从 MiVerse 策略实现接入 Pi_05、OpenWAM、FastWAM、Xiaomi_Robotics_1，同时包含评测、数据转换和训练入口。模型环境、权重和数据集独立于代码仓库管理。
 
 仓库级概念与接入步骤从本文开始。安装命令、权重布局与训练细节以各策略自己的 README 为准。
 
@@ -54,56 +54,29 @@ XPolicyLab 是策略代码与评测环境之间的共享层。每个模型的依
 - **环境隔离**：策略模型跑在自己的 conda/uv 环境里，仿真器、benchmark 或机器人客户端单独运行。
 - **远程部署**：策略 server 与环境 client 通过 websocket 连接，可同机也可跨机。
 - **统一 adapter 契约**：安装、数据转换、训练、服务化、评测共用同一套高层生命周期。
-- **大规模策略库**：复用 VLA/WAM、模仿学习基线与参考模板的 adapter。
+- **六个 MiVerse 策略**：复用保留的模型，以及接入的 Pi_05、OpenWAM、FastWAM、Xiaomi_Robotics_1 流程。
 - **Benchmark / 基础设施集成**：把 XPolicyLab 挂进 benchmark 或仿真工作区，而不把策略代码绑死在某一个环境上。
 
 
 
 ## 🌐 已支持的 Benchmark 与基础设施
 
-XPolicyLab 与具体 benchmark 解耦：任意 benchmark、仿真器或真机方案都可以作为环境 client，挂到同一套策略侧接口上 —— 每个策略一个 adapter，每个环境一个 client。下列 benchmark 均已接入；RoboDojo 与 RoboTwin 的官方排行榜由 XPolicyLab 提交驱动。
-
-<div align="center">
-<img src="assets/benchmarks.png" alt="Cross-platform evaluation through XPolicyLab" width="70%"/>
-<p><em>通过共享代码库与标准化服务接口做跨平台评测。</em></p>
-</div>
-
-**Benchmarks**
-
-- **[RoboDojo](https://github.com/RoboDojo-Benchmark/RoboDojo)**：基于仿真器的评测，以及 RoboDojo 格式数据导出。[RoboDojo Leaderboard](https://robodojo-benchmark.com/LeaderBoard) 覆盖五个能力维度（Generalization、Precision、Long-Horizon、Memory、Open）上的 42 个仿真任务，以及三套双臂本体上的 18 个真机任务。
-- **[RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin)**：通过策略专用 adapter 与转换脚本作为 benchmark 与数据源。[RoboTwin 2.0 Leaderboard](https://robotwin-platform.github.io/leaderboard) 覆盖干净与随机设置下 50 个双臂操作任务。
-- **[RMBench](https://github.com/RoboTwin-Platform/RMBench)**：基于 RoboTwin 2.0 的记忆依赖操作 benchmark，九个双臂任务覆盖不同任务记忆复杂度（[论文](https://arxiv.org/abs/2603.01229)，[网站](https://rmbench.github.io/)）。其参考策略已接入为 [Mem-0](policy/Mem_0/README.md)。
-
-**基础设施**
-
-- **[RLinf](https://github.com/RLinf/RLinf)** *（即将支持）*：策略开发与部署工作流的基础设施目标。
-- **StarVLA**：基础设施与策略栈；见 [policy/StarVLA](policy/StarVLA/README.md)。
-
-
+本版本面向 MiVerse M92UW 任务。仿真环境位于父工作区，XPolicyLab 负责模型代码、数据转换、训练与策略 server。外部 RoboDojo 的 MiVerse client 也可以通过 WebSocket 连接，无需修改模型 adapter。
 
 ## 🧭 已接入策略
 
-当前已接入 69 个策略，覆盖 VLA、world-action、模仿学习与记忆增强等家族，另加 [demo_policy](policy/demo_policy/README.md) 作为最小参考 adapter。顶层 adapter 位于 `policy/`；每个策略 README 记录该模型的论文/仓库链接、环境、数据格式、训练入口与 checkpoint 布局。
+`policy/` 下的可运行策略目录为：
 
+- [MM_ABC](policy/MM_ABC/README.md)
+- [MoPA](policy/MoPA/README.md)
+- [Pi_05](policy/Pi_05/README.md)
+- [OpenWAM](policy/OpenWAM/README.md)
+- [FastWAM](policy/FastWAM/README.md)
+- [Xiaomi_Robotics_1](policy/Xiaomi_Robotics_1/README.md)
 
-| Policy                                   | Policy                                               | Policy                                      | Policy                                                     | Policy                                                         | Policy                                            |
-| ---------------------------------------- | ---------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
-| [A1](policy/A1/README.md)                | [AHA-WAM](policy/AHA_WAM/README.md)                  | [ABot-M0](policy/Abot_M0/README.md)         | [Being-H05](policy/Being_H05/README.md)                    | [DM0](policy/Dexbotic_DM0/README.md)                           | [Dexora-1B](policy/Dexora_1B/README.md)           |
-| [DreamZero](policy/DreamZero/README.md)  | [EventVLA](policy/EventVLA/README.md)                | [FastWAM](policy/FastWAM/README.md)         | [G0](policy/GalaxeaVLA/README.md)                          | [G0.5](policy/G05/README.md)                                   | [GO-1](policy/GO1/README.md)                      |
-| [GR00T-N1.7](policy/GR00T_N17/README.md) | [GigaWorld-Policy](policy/GigaWorldPolicy/README.md) | [H-RDT](policy/H_RDT/README.md)             | [Hy-Embodied-0.5-VLA](policy/Hy_Embodied_05_VLA/README.md) | [InternVLA-A1](policy/InternVLA_A1/README.md)                  | [InternVLA-A1.5](policy/InternVLA_A1_5/README.md) |
-| [LDA-1B](policy/LDA_1B/README.md)        | [LingBot-VA](policy/LingBot_VA/README.md)            | [LingBot-VLA](policy/LingBot_VLA/README.md) | [Meituan-Robotics-0](policy/Meituan_Robotics_0/README.md)  | [Mem-0](policy/Mem_0/README.md)                                | [MolmoAct2](policy/MolmoAct2/README.md)           |
-| [UniWAM](policy/UniWAM/README.md)      | [OpenDM](policy/OpenDM/README.md)                    | [OpenVLA-OFT](policy/OpenVLA_OFT/README.md) | [OpenWAM](policy/OpenWAM/README.md)                        | [π0](policy/Pi_0/README.md)                                    | [π0.5](policy/Pi_05/README.md)                    |
-| [π0-Fast](policy/Pi_0_Fast/README.md)    | [RDT-1B](policy/RDT_1B/README.md)                    | [RISE](policy/RISE/README.md)               | [SmolVLA](policy/SmolVLA/README.md)                        | [Spatial Forcing](policy/Spatial_Forcing/README.md)            | [Spirit v1.5](policy/Spirit_v15/README.md)        |
-| [TinyVLA](policy/TinyVLA/README.md)      | [X-VLA](policy/X_VLA/README.md)                      | [X-WAM](policy/X_WAM/README.md)             | [Xiaomi-Robotics-0](policy/Xiaomi_Robotics_0/README.md)    | [Xiaomi-Robotics-1 (XR-1)](policy/Xiaomi_Robotics_1/README.md) | [StarVLA](policy/StarVLA/README.md)               |
-| [ACT](policy/ACT/README.md) | [DP](policy/DP/README.md) | [Evo-1](policy/Evo_1/README.md) | [InternW0_delta](policy/InternW0_delta/README.md) | [KinRT](policy/KinRT/README.md) | [PatchWAM-Lite](policy/PatchWAM/README.md) |
-| [Awomo-0.5](policy/Awomo05/README.md) | [MoPA](policy/MoPA/README.md) | [PhysicalRSI](policy/physicalRSI/README.md) | [Simate-beta](policy/Simate_beta/README.md) | [SimpleMemVLA](policy/SimpleMemVLA/README.md) | [WorldScape Policy 2.0](policy/WorldScape_Policy_2/README.md) |
-| [GPT-6-Astra-Direct-EEF](policy/GPT_6_Astra_Direct_EEF/README.md) | [VPP2](policy/VPP2/README.md) | [Liber-0 Lite](policy/Liber_0_lite/README.md) | [Liber-0 Preview](policy/Liber_0_preview/README.md) | [Discrete Forcing](policy/Discrete_Forcing/README.md) | [EgoVLA](policy/EgoVLA/README.md) |
-| [MM-ABC](policy/MM_ABC/README.md) | [HWM-CogWAM](policy/HWM_CogWAM/README.md) | [ME-Brain-1.0](policy/ME_Brain_1/README.md) | [ME-U0](policy/ME_U0/README.md) | [ME-Dex-1.0](policy/ME_Dex_1_0/README.md) | [Rex_M1_preview](policy/Rex_M1_preview/README.md) |
-| [Spark_0](policy/Spark_0/README.md) | [ViGAR](policy/ViGAR/README.md) | [CloudRobo-WM](policy/CloudRobo_WM/README.md) | | | |
-| [demo_policy](policy/demo_policy/README.md) | | | | | |
+Pi_05 和 FastWAM 使用 MiVerse 45 维关节布局；OpenWAM 使用 EE45 并映射到模型的 80 维空间；Xiaomi_Robotics_1 使用当前的 60 维状态和 39 维有效动作，不支持旧 `miverse_formal` 布局。各策略的数据转换和训练命令见对应 README。
 
-
-接入自有策略，或报名排行榜，都通过 PR —— 见 [接入你自己的策略](#-接入你自己的策略)。
+最小 adapter 模板位于 [templates/policy](templates/policy/README.md)，不占用可运行策略目录。
 
 ## 🧩 框架概览
 
@@ -140,7 +113,7 @@ policy/<POLICY>/
 └── model.py                     # model adapter, served by the policy server
 ```
 
-`model.py` 实现面向模型的 API。`deploy.py` 把环境观测桥接到模型 server 调用。最小参考见 [policy/demo_policy](policy/demo_policy/README.md)。
+`model.py` 实现面向模型的 API。`deploy.py` 把环境观测桥接到模型 server 调用。最小参考见 [templates/policy](templates/policy/README.md)。
 
 `model.py` 应定义如下形态的 `Model` 类：
 
@@ -189,54 +162,19 @@ policy/<POLICY>/
 
 ## ⚡ 快速开始
 
-把 XPolicyLab 当作普通 Python 项目克隆，用于 adapter 开发、离线检查、基于已准备数据的训练，或自建环境 client：
+将本仓库放在 MiVerse 仿真工作区的 `XPolicyLab/` 下。策略 server 通过 `XPolicyLab.policy.<POLICY>.model` 导入；仿真 client 和 `env_cfg/` 属于父工作区。本次修改不安装仿真器，也不复制权重、数据集或虚拟环境。
+
+按各策略的 `install.sh` / README 使用独立环境。通过对应 `process_data.sh` 转换 MiVerse 原始 HDF5，再用 `train.sh` 训练。新接入的四个 adapter 均包含 MiVerse 训练配置；不同策略的转换数据和归一化统计不能混用。
+
+评测时，按策略 README 指定 checkpoint 和环境，使用现有入口：
 
 ```bash
-mkdir demo_env
-cd demo_env
-git clone https://github.com/XPolicyLab/XPolicyLab.git
-cd XPolicyLab
-pip install -e .
-```
-
-开始模型侧开发不需要仿真器：自带下载脚本可拉取已准备好的 RoboDojo 数据 —— 多种仿真导出版本，以及 HDF5 `RoboDojo_real` 真机数据 —— 用于训练与离线调试。若把 `XPolicyLab/` 作为 RoboDojo 仓库内的子包使用，请改用 RoboDojo 自己的数据下载脚本。
-
-下载一个小的 Hugging Face demo 包，并把数据放在 `XPolicyLab/` 旁：
-
-```bash
-# From demo_env/XPolicyLab
-bash scripts/RoboDojo/download_robodojo_data.sh demo
-```
-
-会得到：
-
-```text
-demo_env/
-├── data/        # demo data, including a small 10-episode HuggingFace bundle
-└── XPolicyLab/
-```
-
-同一脚本可拉取完整导出 —— `hdf5`、`lerobot_v3.0`、`lerobot_v2.1` 与 `real`（真机 HDF5）—— 各自进独立的 `../data/` 目录。两套 LeRobot 导出由[官方转换器](#官方-lerobot-转换)生成，你也可以按自己的任务子集或分辨率重新生成。
-
-有了这套布局，就可以在接入仿真 backed benchmark 之前，先测数据转换、模型加载、训练脚本与 debug 模式评测。
-
-```bash
-export EVAL_ENV_TYPE=debug
-cd policy/demo_policy
-bash install.sh
-bash eval.sh RoboDojo stack_bowls demo arx_x5 joint 0 0 0 base base
-```
-
-任意 adapter 的模板相同 —— 替换 `demo_policy` 与参数即可：
-
-```bash
-export EVAL_ENV_TYPE=debug
 cd policy/<POLICY>
-bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> \
-  <seed> <policy_gpu_id> <env_gpu_id> <policy_env_or_uv_path> <eval_env_conda_env>
+bash eval.sh MiVerse <task_name> <ckpt_path_or_name> miverse <joint_or_ee> \
+  0 <policy_gpu_id> <env_gpu_id> <policy_env_or_uv_path> <sim_conda_env>
 ```
 
-做 RoboDojo 仿真时，把 `XPolicyLab/` 挂在仿真侧的 `env_cfg/`、`scripts/`、`src/eval_client/`、`task/` 目录旁。
+Pi_05 / FastWAM 使用 `joint`，OpenWAM / Xiaomi_Robotics_1 使用 `ee`。MM_ABC / MoPA 系列继续使用各自已有配置。server 和 client 启动脚本保留，可由外部 benchmark 脚本统一编排。
 
 ## 🔄 通用工作流
 
@@ -284,9 +222,9 @@ bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <
 **一个具体的评测例子：**
 
 ```bash
-cd policy/AHA_WAM
-bash eval.sh RoboDojo stack_bowls cotrain arx_x5 joint 0 0 0 aha_wam robodojo
-# loads checkpoints/RoboDojo-cotrain-arx_x5-joint-0/ and evaluates on stack_bowls
+cd policy/MM_ABC
+bash eval.sh MiVerse place_fruit_basket miverse-4b miverse joint 0 0 0 mmabc RoboDojo
+# checkpoint: checkpoints/MiVerse-miverse-4b-miverse-joint-0/; use your installed environment names
 ```
 
 
@@ -470,7 +408,7 @@ from XPolicyLab.utils.process_data import (
 
 为某个 benchmark 发布的现成 LeRobot 导出 —— 例如[快速开始](#-快速开始)中的 `lerobot_v2.1` / `lerobot_v3.0` —— 即按此方式生成，因此消费它们的策略无需再做自己的转换步骤。
 
-> **在 LeRobot 数据上训练的策略必须在自己的 README 的 `Data Processing` 中声明**：数据集版本，以及键是否与上文一致。若一致，写明转换器名称，并说明 `process_data.sh` 是缺失还是仅做链接与规范化。若不一致 —— 上游原生布局、额外键、latent 树、不同相机名 —— 写明差异及如何产出该布局。[policy/RISE](policy/RISE/README.md) 与 [policy/AHA_WAM](policy/AHA_WAM/README.md) 是第一种的实例，[policy/LingBot_VA](policy/LingBot_VA/README.md) 是第二种。
+> **在 LeRobot 数据上训练的策略必须在自己的 README 的 `Data Processing` 中声明**：数据集版本，以及键是否与上文一致。若一致，写明转换器名称，并说明 `process_data.sh` 是缺失还是仅做链接与规范化。若不一致 —— 上游原生布局、额外键、latent 树、不同相机名 —— 写明差异及如何产出该布局。[policy/RISE](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/RISE/README.md) 与 [policy/AHA_WAM](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/AHA_WAM/README.md) 是第一种的实例，[policy/LingBot_VA](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/LingBot_VA/README.md) 是第二种。
 
 <details>
 <summary>运行转换</summary>
@@ -515,7 +453,7 @@ python scripts/transform_lerobot_v21_format.py "<bench_name>.*.*" \
 
 欢迎社区策略 —— 开 PR 添加 `policy/<POLICY>/`。进入官方 [RoboDojo](https://robodojo-benchmark.com/LeaderBoard) 与 [RoboTwin](https://robotwin-platform.github.io/leaderboard) 排行榜同样**需要** PR，并附上可复现结果的 checkpoint。
 
-如何搭 adapter、提交必须包含什么、PR 前要跑哪些检查、以及 PR 模板，都在 [CONTRIBUTING.md](CONTRIBUTING.md)。从 [policy/demo_policy](policy/demo_policy/README.md) 开始，或运行 `bash scripts/create_policy.sh <POLICY_NAME>`。
+如何搭 adapter、提交必须包含什么、PR 前要跑哪些检查、以及 PR 模板，都在 [CONTRIBUTING.md](CONTRIBUTING.md)。从 [templates/policy](templates/policy/README.md) 开始，或运行 `bash scripts/create_policy.sh <POLICY_NAME>`。
 
 ## 🤖 编程 Agent
 

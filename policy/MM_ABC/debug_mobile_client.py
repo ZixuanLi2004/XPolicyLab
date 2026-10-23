@@ -11,13 +11,13 @@ from pathlib import Path
 import numpy as np
 
 from client_server.ws import WsModelClient
-from XPolicyLab.utils.process_data import decode_image_bit, encode_image_bit
+from XPolicyLab.utils.process_data import encode_image_bit
 
 _MMABC = Path(os.environ.get("MMABC_ROOT", Path(__file__).resolve().parent / "MM_ABC"))
 if str(_MMABC) not in sys.path:
     sys.path.insert(0, str(_MMABC))
 
-from mmabc.embodiments import mobile  # noqa: E402
+from mmabc.embodiments import miverse  # noqa: E402
 
 def _str2bool(v) -> bool:
     return str(v).strip().lower() in ("1", "true", "t", "yes", "y", "on")
@@ -28,7 +28,7 @@ def _encode_camera(rgb: np.ndarray, raw: bytes | None, mode: str):
     if mode == "jpeg_rgb":
         return encode_image_bit(rgb)
     if mode == "raw_hdf5":
-        return raw
+        return miverse.camera_jpeg_buffer(raw)
     raise ValueError(mode)
 
 class SyntheticSource:
@@ -42,15 +42,15 @@ class SyntheticSource:
 
     def obs(self, t: int, env_idx: int, send: str) -> dict:
         vision = {}
-        for cam in mobile.CAMERAS.values():
+        for cam in miverse.CAMERAS.values():
             rgb = self.rng.integers(0, 256, size=(*self.hw, 3), dtype=np.uint8)
             vision[cam] = {"color": _encode_camera(rgb, None, "array" if send == "raw_hdf5" else send)}
         state = {}
-        for key, dim, kind in mobile.KEYS:
+        for key, dim, kind in miverse.KEYS:
             value = self.rng.normal(0.0, 0.05, dim)
             if kind == "pose":
                 value[3:] = [1.0, 0.0, 0.0, 0.0]
-            state[mobile.singular(key)] = value.astype(np.float32)
+            state[miverse.singular(key)] = value.astype(np.float32)
         return {"vision": vision, "state": state, "instruction": self.instruction, "env_idx": env_idx}
 
 class ReplaySource:
@@ -68,17 +68,17 @@ class ReplaySource:
 
     def obs(self, t: int, env_idx: int, send: str) -> dict:
         vision = {}
-        for cam in mobile.CAMERAS.values():
+        for cam in miverse.CAMERAS.values():
             raw = bytes(self.f[f"vision/{cam}/colors"][t])
-            rgb = decode_image_bit(raw)
+            rgb = miverse.decode_camera_frame(raw)
             vision[cam] = {"color": _encode_camera(rgb, raw, send)}
-        state = {mobile.singular(k): v[t].astype(np.float32) for k, v in self.state.items()}
+        state = {miverse.singular(k): v[t].astype(np.float32) for k, v in self.state.items()}
         return {"vision": vision, "state": state, "instruction": self.instruction, "env_idx": env_idx}
 
 def validate_action(action: dict, key_style: str) -> None:
     if not isinstance(action, dict):
         raise TypeError(f"action must be a dict, got {type(action)}")
-    expected = {(mobile.singular(k) if key_style == "singular" else k): (d, kind) for k, d, kind in mobile.KEYS}
+    expected = {(miverse.singular(k) if key_style == "singular" else k): (d, kind) for k, d, kind in miverse.KEYS}
     extra = set(action) - set(expected)
     if extra:
         raise KeyError(f"unexpected action keys {sorted(extra)}")
@@ -97,7 +97,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="localhost")
     ap.add_argument("--port", type=int, required=True)
-    ap.add_argument("--hdf5", nargs="*", default=None, help="replay these Mobile episodes")
+    ap.add_argument("--hdf5", nargs="*", default=None, help="replay these MiVerse episodes")
     ap.add_argument("--start", type=int, default=0, help="first frame of each replay")
     ap.add_argument("--eval_episode_num", type=int, default=2)
     ap.add_argument("--episode_step_limit", type=int, default=48)
@@ -146,7 +146,7 @@ def main() -> None:
                 if isinstance(src, ReplaySource):
                     for step, action in enumerate(chunks[0][: end - t]):
                         for key, rec in src.action.items():
-                            name = mobile.singular(key) if args.action_key_style == "singular" else key
+                            name = miverse.singular(key) if args.action_key_style == "singular" else key
                             pred = np.asarray(action[name], dtype=np.float64)
                             ref, now = rec[t + step], src.state[key][t]
                             if key.endswith("poses"):
@@ -164,7 +164,7 @@ def main() -> None:
                 print(f"{key:28s} {np.mean(errors[key]):10.4f} {np.mean(hold[key]):10.4f}")
             m, h = np.mean([np.mean(v) for v in errors.values()]), np.mean([np.mean(v) for v in hold.values()])
             print(f"{'mean':28s} {m:10.4f} {h:10.4f}")
-        print("\n\033[92mMM_ABC CLIENT PASSED: every action chunk matched the Mobile contract.\033[0m")
+        print("\n\033[92mMM_ABC CLIENT PASSED: every action chunk matched the MiVerse contract.\033[0m")
     finally:
         close = getattr(client, "close", None)
         if callable(close):

@@ -10,12 +10,13 @@ port: null
 host: localhost
 
 # Identifiers + per-launch wiring (set via --overrides from the eval scripts).
-bench_name: null
+bench_name: MiVerse
 task_name: null
 ckpt_name: null
-env_cfg_type: null
+env_cfg_type: miverse
 action_type: ee
-action_dim: null
+action_dim: 45
+checkpoint_file: null  # null loads the highest step in ckpt_dir
 seed: 42
 gpu_id: null
 

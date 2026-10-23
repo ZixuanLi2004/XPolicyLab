@@ -22,7 +22,7 @@ class ModelAdapter:
 
     def __init__(self, checkpoint, dim_info, model_cfg):
         self.dim_info = dim_info
-        self.is_mobile = model_cfg.get("env_cfg_type", "").lower() in {"m92uw", "mobile", "mobile_m92uw"}
+        self.is_mobile = model_cfg.get("env_cfg_type", "").lower() in mobile.ENV_CFG_TYPES
         self.default_instruction = str(model_cfg.get("task_name") or "")
         self.action_key_style = str(model_cfg.get("action_key_style") or "singular")
         if self.action_key_style not in {"singular", "plural"}:
@@ -31,14 +31,18 @@ class ModelAdapter:
         if self.input_color_order not in {"rgb", "bgr"}:
             raise ValueError("input_color_order must be 'rgb' or 'bgr'")
         self.mobile_action_contract = str(
-            model_cfg.get("mobile_action_contract") or "mopa75"
+            model_cfg.get("mobile_action_contract") or model_cfg.get("miverse_action_contract") or "mopa75"
         ).lower()
         if self.mobile_action_contract not in {"mopa75", "extended90"}:
             raise ValueError("mobile_action_contract must be 'mopa75' or 'extended90'")
         self.policy = Policy(checkpoint, device=model_cfg.get("device", "cuda"),
                              base_vlm=model_cfg.get("base_vlm"), dtype=model_cfg.get("dtype"))
         dim = mobile.MODEL_DIM if self.is_mobile else sum(size for _, size in joint_fields(dim_info))
-        for key, expected in (("env_cfg_type", model_cfg["env_cfg_type"]), ("action_type", "joint"),
+        saved_env = self.policy.config.get("env_cfg_type")
+        if saved_env != model_cfg["env_cfg_type"] and not (
+                self.is_mobile and str(saved_env).lower() in mobile.ENV_CFG_TYPES):
+            raise ValueError(f"Checkpoint env_cfg_type={saved_env!r}, runtime requires {model_cfg['env_cfg_type']!r}")
+        for key, expected in (("action_type", "joint"),
                               ("action_dim", dim), ("state_dim", dim), ("robot_action_dim_info", dim_info)):
             if self.policy.config.get(key) != expected:
                 raise ValueError(f"Checkpoint {key}={self.policy.config.get(key)!r}, runtime requires {expected!r}")
@@ -226,7 +230,7 @@ def convert_episode(source, dim_info, cameras, instruction=None):
 def convert_dataset(source_dir, output_dir, env_cfg_type, *, cameras=None,
                     image_size=(224, 224), episode_limit=None, instruction=None):
     source_dir = Path(source_dir)
-    if env_cfg_type.lower() in {"m92uw", "mobile", "mobile_m92uw"}:
+    if env_cfg_type.lower() in mobile.ENV_CFG_TYPES:
         selected = list(cameras) if cameras is not None else list(mobile.CAMERAS)
         unknown = [name for name in selected if name not in mobile.CAMERAS]
         if unknown:
@@ -269,6 +273,11 @@ def process_data_main(argv=None, *, policy_dir, xpl_root):
     args = parser.parse_args(argv)
     if args.source:
         source = args.source
+    elif args.bench_name.lower() in {"miverse", "miverse_depth"}:
+        source = Path(os.environ.get(
+            "MIVERSE_DATASET",
+            str(Path(xpl_root).parent / "dataset" / "MiVerse" / "data" / "MiVerse"),
+        ))
     else:
         source = Path(xpl_root).parent / "data" / args.bench_name / args.ckpt_name / args.env_cfg_type / "data"
     output = args.output or Path(policy_dir) / "data" / build_run_dir_name(vars(args), include_seed=False)
@@ -303,12 +312,17 @@ def train_main(argv=None, *, policy_dir, xpl_root):
     args.output = args.output or Path(policy_dir) / "checkpoints" / build_run_dir_name(vars(args))
     dim = args.action_dim
     if dim is None:
-        if args.env_cfg_type.lower() in {"m92uw", "mobile", "mobile_m92uw"}:
+        if args.env_cfg_type.lower() in mobile.ENV_CFG_TYPES:
             dim = mobile.MODEL_DIM
         else:
             dim = int(subprocess.check_output(["bash", str(Path(xpl_root) / "utils/get_action_dim.sh"),
                                               str(Path(xpl_root).parent), args.env_cfg_type], text=True).strip())
     dataset = EpisodeDataset(args.dataset, cache_episodes=args.cache_episodes)
-    if dataset.metadata.get("env_cfg_type") != args.env_cfg_type or dataset.dim != dim:
+    saved_env = dataset.metadata.get("env_cfg_type")
+    matching_env = saved_env == args.env_cfg_type or (
+        str(saved_env).lower() in mobile.ENV_CFG_TYPES
+        and args.env_cfg_type.lower() in mobile.ENV_CFG_TYPES
+    )
+    if not matching_env or dataset.dim != dim:
         raise ValueError("Dataset robot/dimensions disagree with the training environment and shared dimension helper")
     run_training(args)

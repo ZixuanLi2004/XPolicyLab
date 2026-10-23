@@ -1,1 +1,0 @@
-"""LIBERO evaluation integration."""

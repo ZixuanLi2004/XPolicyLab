@@ -23,7 +23,7 @@ Building Scalable Infrastructure for Robot Learning Workshop, awarded to all XPo
 
 </div>
 
-XPolicyLab is the shared layer between policy code and evaluation environments. Keep each model's dependencies, checkpoints, and training recipes under `policy/<POLICY>/`; XPolicyLab handles the parts that are boring but easy to get wrong — serving, observation/action contracts, and eval wiring. As of October 2026, the ecosystem integrates **69 robot policies** spanning VLA, world-action, imitation-learning, and memory-augmented families, and the same adapters serve RoboTwin, RoboDojo simulation, and standardized real-robot evaluation.
+This checkout is the **MiVerse edition of XPolicyLab**, with six policy adapters. It retains MM_ABC and MoPA and imports Pi_05, OpenWAM, FastWAM and Xiaomi_Robotics_1 from the MiVerse policy implementation, including evaluation, data conversion and training entry points. Model environments, checkpoints and datasets remain separate from this repository.
 
 Start here for repo-level concepts and integration steps. For install commands, checkpoint layout, and training details, jump to that policy's README — it is the source of truth for its model.
 
@@ -52,55 +52,29 @@ Start here for repo-level concepts and integration steps. For install commands, 
 - **Environment isolation**: run the policy model in its own conda/uv environment while the simulator, benchmark, or robot client runs separately.
 - **Remote deployment**: connect the policy server and environment client through websocket, either on one machine or across machines.
 - **A common adapter contract**: use the same high-level lifecycle for installation, data conversion, training, serving, and evaluation.
-- **A large policy zoo**: reuse adapters for VLA/WAM policies, imitation-learning baselines, and reference templates.
+- **Six MiVerse adapters**: reuse the retained models and the imported Pi_05, OpenWAM, FastWAM and Xiaomi_Robotics_1 pipelines.
 - **Benchmark and infra integration**: mount XPolicyLab into benchmark or simulator workspaces without coupling policy code to one environment.
 
 
 
 ## 🌐 Supported Benchmarks And Infrastructure
 
-XPolicyLab is benchmark-agnostic: any benchmark, simulator, or real-robot setup can plug in as an environment client against the same policy-side interface — one adapter per policy, one client per environment. The benchmarks below are already integrated; the RoboDojo and RoboTwin official leaderboards are powered by XPolicyLab submissions.
-
-<div align="center">
-<img src="assets/benchmarks.png" alt="Cross-platform evaluation through XPolicyLab" width="70%"/>
-<p><em>Cross-platform evaluation through a shared codebase and standardized serving interface.</em></p>
-</div>
-
-**Benchmarks**
-
-- **[RoboDojo](https://github.com/RoboDojo-Benchmark/RoboDojo)**: simulator-backed evaluation and RoboDojo-format data exports. The [RoboDojo Leaderboard](https://robodojo-benchmark.com/LeaderBoard) covers 42 simulation tasks across five capability dimensions (Generalization, Precision, Long-Horizon, Memory, Open) plus 18 real-robot tasks on three bimanual embodiments.
-- **[RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin)**: benchmark and data source through policy-specific adapters and conversion scripts. The [RoboTwin 2.0 Leaderboard](https://robotwin-platform.github.io/leaderboard) covers bimanual manipulation across 50 tasks under clean and randomized settings.
-- **[RMBench](https://github.com/RoboTwin-Platform/RMBench)**: memory-dependent manipulation benchmark built on RoboTwin 2.0, with nine dual-arm tasks spanning levels of task memory complexity ([paper](https://arxiv.org/abs/2603.01229), [website](https://rmbench.github.io/)). Its reference policy is integrated as [Mem-0](policy/Mem_0/README.md).
-
-**Infrastructure**
-
-- **[RLinf](https://github.com/RLinf/RLinf)** *(coming soon)*: infrastructure target for policy development and deployment workflows.
-- **StarVLA**: infrastructure and policy stack; see [policy/StarVLA](policy/StarVLA/README.md).
-
-
+This edition targets MiVerse M92UW tasks. The simulation environment stays in the parent workspace, while XPolicyLab owns model code, data conversion, training and the policy server. The WebSocket interface also allows an external RoboDojo MiVerse client to connect without changing the model adapter.
 
 ## 🧭 Integrated Policies
 
-69 policies are currently integrated, spanning VLA, world-action, imitation-learning, and memory-augmented families, plus [demo_policy](policy/demo_policy/README.md) as the minimal reference adapter. Top-level adapters live in `policy/`; each policy README documents that model's paper/repo link, environment, data format, training entrypoint, and checkpoint layout.
+The runnable `policy/` directories are:
 
+- [MM_ABC](policy/MM_ABC/README.md)
+- [MoPA](policy/MoPA/README.md)
+- [Pi_05](policy/Pi_05/README.md)
+- [OpenWAM](policy/OpenWAM/README.md)
+- [FastWAM](policy/FastWAM/README.md)
+- [Xiaomi_Robotics_1](policy/Xiaomi_Robotics_1/README.md)
 
-| Policy                                   | Policy                                               | Policy                                      | Policy                                                     | Policy                                                         | Policy                                            |
-| ---------------------------------------- | ---------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
-| [A1](policy/A1/README.md)                | [AHA-WAM](policy/AHA_WAM/README.md)                  | [ABot-M0](policy/Abot_M0/README.md)         | [Being-H05](policy/Being_H05/README.md)                    | [DM0](policy/Dexbotic_DM0/README.md)                           | [Dexora-1B](policy/Dexora_1B/README.md)           |
-| [DreamZero](policy/DreamZero/README.md)  | [EventVLA](policy/EventVLA/README.md)                | [FastWAM](policy/FastWAM/README.md)         | [G0](policy/GalaxeaVLA/README.md)                          | [G0.5](policy/G05/README.md)                                   | [GO-1](policy/GO1/README.md)                      |
-| [GR00T-N1.7](policy/GR00T_N17/README.md) | [GigaWorld-Policy](policy/GigaWorldPolicy/README.md) | [H-RDT](policy/H_RDT/README.md)             | [Hy-Embodied-0.5-VLA](policy/Hy_Embodied_05_VLA/README.md) | [InternVLA-A1](policy/InternVLA_A1/README.md)                  | [InternVLA-A1.5](policy/InternVLA_A1_5/README.md) |
-| [LDA-1B](policy/LDA_1B/README.md)        | [LingBot-VA](policy/LingBot_VA/README.md)            | [LingBot-VLA](policy/LingBot_VLA/README.md) | [Meituan-Robotics-0](policy/Meituan_Robotics_0/README.md)  | [Mem-0](policy/Mem_0/README.md)                                | [MolmoAct2](policy/MolmoAct2/README.md)           |
-| [UniWAM](policy/UniWAM/README.md)      | [OpenDM](policy/OpenDM/README.md)                    | [OpenVLA-OFT](policy/OpenVLA_OFT/README.md) | [OpenWAM](policy/OpenWAM/README.md)                        | [π0](policy/Pi_0/README.md)                                    | [π0.5](policy/Pi_05/README.md)                    |
-| [π0-Fast](policy/Pi_0_Fast/README.md)    | [RDT-1B](policy/RDT_1B/README.md)                    | [RISE](policy/RISE/README.md)               | [SmolVLA](policy/SmolVLA/README.md)                        | [Spatial Forcing](policy/Spatial_Forcing/README.md)            | [Spirit v1.5](policy/Spirit_v15/README.md)        |
-| [TinyVLA](policy/TinyVLA/README.md)      | [X-VLA](policy/X_VLA/README.md)                      | [X-WAM](policy/X_WAM/README.md)             | [Xiaomi-Robotics-0](policy/Xiaomi_Robotics_0/README.md)    | [Xiaomi-Robotics-1 (XR-1)](policy/Xiaomi_Robotics_1/README.md) | [StarVLA](policy/StarVLA/README.md)               |
-| [ACT](policy/ACT/README.md) | [DP](policy/DP/README.md) | [Evo-1](policy/Evo_1/README.md) | [InternW0_delta](policy/InternW0_delta/README.md) | [KinRT](policy/KinRT/README.md) | [PatchWAM-Lite](policy/PatchWAM/README.md) |
-| [Awomo-0.5](policy/Awomo05/README.md) | [MoPA](policy/MoPA/README.md) | [PhysicalRSI](policy/physicalRSI/README.md) | [Simate-beta](policy/Simate_beta/README.md) | [SimpleMemVLA](policy/SimpleMemVLA/README.md) | [WorldScape Policy 2.0](policy/WorldScape_Policy_2/README.md) |
-| [GPT-6-Astra-Direct-EEF](policy/GPT_6_Astra_Direct_EEF/README.md) | [VPP2](policy/VPP2/README.md) | [Liber-0 Lite](policy/Liber_0_lite/README.md) | [Liber-0 Preview](policy/Liber_0_preview/README.md) | [Discrete Forcing](policy/Discrete_Forcing/README.md) | [EgoVLA](policy/EgoVLA/README.md) |
-| [MM-ABC](policy/MM_ABC/README.md) | [HWM-CogWAM](policy/HWM_CogWAM/README.md) | [ME-Brain-1.0](policy/ME_Brain_1/README.md) | [ME-U0](policy/ME_U0/README.md) | [ME-Dex-1.0](policy/ME_Dex_1_0/README.md) | [Rex_M1_preview](policy/Rex_M1_preview/README.md) |
-| [Spark_0](policy/Spark_0/README.md) | [ViGAR](policy/ViGAR/README.md) | [CloudRobo-WM](policy/CloudRobo_WM/README.md) | | | |
-| [demo_policy](policy/demo_policy/README.md) | | | | | |
+Pi_05 and FastWAM use the MiVerse joint 45D layout. OpenWAM uses EE45 mapped to its 80D model space. Xiaomi_Robotics_1 uses the current 60D state layout and 39 active action dimensions; the old `miverse_formal` layout is unsupported. Follow each policy README for the corresponding conversion and training commands.
 
-Adding a policy of your own, or entering a leaderboard, both go through a PR — see [Add Your Own Policy](#-add-your-own-policy).
+The minimal adapter template is stored at [templates/policy](templates/policy/README.md), outside the runnable inventory.
 
 ## 🧩 Framework Overview
 
@@ -137,7 +111,7 @@ policy/<POLICY>/
 └── model.py                     # model adapter, served by the policy server
 ```
 
-`model.py` implements the model-facing API. `deploy.py` bridges environment observations to model-server calls. Use [policy/demo_policy](policy/demo_policy/README.md) as the minimal adapter reference.
+`model.py` implements the model-facing API. `deploy.py` bridges environment observations to model-server calls. Use [templates/policy](templates/policy/README.md) as the minimal adapter reference.
 
 `model.py` should define a `Model` class with this shape:
 
@@ -186,54 +160,19 @@ Optional `deploy.yml` keys — omit them to keep the defaults:
 
 ## ⚡ Quick Start
 
-Clone XPolicyLab as a normal Python project for adapter development, offline checks, training from prepared data, or your own environment client:
+Use this checkout as `XPolicyLab/` inside the MiVerse simulation workspace. The policy server imports `XPolicyLab.policy.<POLICY>.model`; the simulation client and `env_cfg/` belong to the parent workspace. This change does not install a simulator or copy checkpoints, datasets or virtual environments.
+
+Install each policy in its own environment using its `install.sh` / README. Convert the raw MiVerse HDF5 episodes with that policy's `process_data.sh`, then use its `train.sh`. The four imported adapters include MiVerse training configurations; do not interchange their converted datasets or normalization statistics.
+
+For evaluation, select the policy checkpoint and environment in its README and run the existing entry point:
 
 ```bash
-mkdir demo_env
-cd demo_env
-git clone https://github.com/XPolicyLab/XPolicyLab.git
-cd XPolicyLab
-pip install -e .
-```
-
-You do not need a simulator to start model-side development: the bundled downloader fetches prepared RoboDojo data — several simulator export versions plus HDF5 `RoboDojo_real` real-world data — for training and offline debugging. If you use `XPolicyLab/` as a subpackage inside the RoboDojo repository, follow RoboDojo's own data download scripts instead.
-
-Download a small Hugging Face demo bundle and keep the data next to `XPolicyLab/`:
-
-```bash
-# From demo_env/XPolicyLab
-bash scripts/RoboDojo/download_robodojo_data.sh demo
-```
-
-This creates:
-
-```text
-demo_env/
-├── data/        # demo data, including a small 10-episode HuggingFace bundle
-└── XPolicyLab/
-```
-
-The same script pulls the full exports — `hdf5`, `lerobot_v3.0`, `lerobot_v2.1`, and `real` (real-world HDF5) — each into its own `../data/` folder. The two LeRobot exports come from the [official converters](#official-lerobot-conversion), so you can regenerate them for your own task subset or resolution.
-
-With this setup, you can test data conversion, model loading, training scripts, and debug-mode evaluation before connecting to a simulator-backed benchmark.
-
-```bash
-export EVAL_ENV_TYPE=debug
-cd policy/demo_policy
-bash install.sh
-bash eval.sh RoboDojo stack_bowls demo arx_x5 joint 0 0 0 base base
-```
-
-The template for any adapter is the same — swap `demo_policy` and the argument values:
-
-```bash
-export EVAL_ENV_TYPE=debug
 cd policy/<POLICY>
-bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> \
-  <seed> <policy_gpu_id> <env_gpu_id> <policy_env_or_uv_path> <eval_env_conda_env>
+bash eval.sh MiVerse <task_name> <ckpt_path_or_name> miverse <joint_or_ee> \
+  0 <policy_gpu_id> <env_gpu_id> <policy_env_or_uv_path> <sim_conda_env>
 ```
 
-For RoboDojo simulation, mount `XPolicyLab/` beside the simulator-side `env_cfg/`, `scripts/`, `src/eval_client/`, and `task/` directories.
+Use `joint` for Pi_05 / FastWAM and `ee` for OpenWAM / Xiaomi_Robotics_1. Preserve the existing MM_ABC / MoPA configuration when running those adapters. Server and client launchers remain available for external benchmark orchestration.
 
 ## 🔄 Common Workflow
 
@@ -281,9 +220,9 @@ When you run `eval.sh`, you are mostly answering: **which benchmark family**, **
 **A concrete eval example:**
 
 ```bash
-cd policy/AHA_WAM
-bash eval.sh RoboDojo stack_bowls cotrain arx_x5 joint 0 0 0 aha_wam robodojo
-# loads checkpoints/RoboDojo-cotrain-arx_x5-joint-0/ and evaluates on stack_bowls
+cd policy/MM_ABC
+bash eval.sh MiVerse place_fruit_basket miverse-4b miverse joint 0 0 0 mmabc RoboDojo
+# checkpoint: checkpoints/MiVerse-miverse-4b-miverse-joint-0/; use your installed environment names
 ```
 
 
@@ -467,7 +406,7 @@ Many policies train on LeRobot datasets instead of the trajectory format above. 
 
 Prepared LeRobot exports published for a benchmark — such as the `lerobot_v2.1` / `lerobot_v3.0` sets in [Quick Start](#-quick-start) — are produced this way, so a policy that consumes one needs no conversion step of its own.
 
-> **A policy that trains on LeRobot data must say so in its own README**, under `Data Processing`: the dataset version, and whether the keys are the ones above. If they are, name the converter and say whether `process_data.sh` is absent or only links and normalizes the dataset. If they are not — an upstream-native layout, extra keys, a latent tree, different camera names — state the differences and how to produce that layout. [policy/RISE](policy/RISE/README.md) and [policy/AHA_WAM](policy/AHA_WAM/README.md) are worked examples of the first case, [policy/LingBot_VA](policy/LingBot_VA/README.md) of the second.
+> **A policy that trains on LeRobot data must say so in its own README**, under `Data Processing`: the dataset version, and whether the keys are the ones above. If they are, name the converter and say whether `process_data.sh` is absent or only links and normalizes the dataset. If they are not — an upstream-native layout, extra keys, a latent tree, different camera names — state the differences and how to produce that layout. [policy/RISE](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/RISE/README.md) and [policy/AHA_WAM](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/AHA_WAM/README.md) are worked examples of the first case, [policy/LingBot_VA](https://github.com/XPolicyLab/XPolicyLab/blob/main/policy/LingBot_VA/README.md) of the second.
 
 <details>
 <summary>Running a conversion</summary>
@@ -512,7 +451,7 @@ Policies may also use upstream-native layouts or explicit paths in `deploy.yml`.
 
 Community policies are welcome — open a PR that adds `policy/<POLICY>/`. A PR is also **required** to enter the official [RoboDojo](https://robodojo-benchmark.com/LeaderBoard) and [RoboTwin](https://robotwin-platform.github.io/leaderboard) leaderboards, together with the checkpoint that reproduces your results.
 
-How to scaffold an adapter, what a submission must contain, the checks to run before a PR, and the PR template all live in [CONTRIBUTING.md](CONTRIBUTING.md). Start from [policy/demo_policy](policy/demo_policy/README.md), or `bash scripts/create_policy.sh <POLICY_NAME>`.
+How to scaffold an adapter, what a submission must contain, the checks to run before a PR, and the PR template all live in [CONTRIBUTING.md](CONTRIBUTING.md). Start from [templates/policy](templates/policy/README.md), or `bash scripts/create_policy.sh <POLICY_NAME>`.
 
 ## 🤖 Coding Agents
 

@@ -1,2 +1,0 @@
--r ../Liber_0_lite/requirements.txt
-flash-attn==2.8.4

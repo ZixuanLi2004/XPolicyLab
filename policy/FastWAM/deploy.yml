@@ -1,6 +1,6 @@
 policy_name: FastWAM
 protocol: ws
-eval_batch: false
+eval_batch: true
 
 # Server transport: overridden by setup_eval_policy_server.sh per launch.
 # Keys are `port` / `host` because XPolicyLab/setup_policy_server.py reads
@@ -9,21 +9,23 @@ port: null
 host: localhost
 
 # Identifiers + per-launch wiring (set via --overrides from the eval scripts).
-bench_name: null
+bench_name: MiVerse
 task_name: null
 ckpt_name: null
-env_cfg_type: null
-action_type: null
-action_dim: null
+env_cfg_type: miverse
+action_type: joint
+action_dim: 45
+miverse: true
 seed: null
 
 # Policy artefacts: resolved in setup_eval_policy_server.sh from ckpt_name.
 checkpoint_path: null
 dataset_stats_path: null
 
-# FastWAM upstream policy hyperparameters.
+# FastWAM upstream policy hyperparameters.  The task must match the MiVerse
+# training config so the composed model keeps action/proprio dimensions at 45.
 sim_cfg_name: sim_robotwin.yaml
-sim_task: robotwin_uncond_3cam_384_1e-4
+sim_task: miverse_uncond_3cam_384_1e-4
 device: cuda
 mixed_precision: bf16
 # null -> upstream default (num_frames - 1, typically 32 for robotwin).
