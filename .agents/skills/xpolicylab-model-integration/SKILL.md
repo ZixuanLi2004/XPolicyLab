@@ -5,7 +5,7 @@ description: Integrate a robot policy into XPolicyLab as a policy/<POLICY>/ adap
 
 # XPolicyLab Model Integration
 
-Add each policy as a self-contained `policy/<POLICY>/` adapter; keep upstream model code unchanged where possible. `templates/policy/` is the minimal reference — mirror it unless the model truly needs more.
+Add each policy as a self-contained `policy/<POLICY>/` adapter; keep upstream model code unchanged where possible. `policy/demo_policy/` is the minimal reference — mirror it unless the model truly needs more.
 
 ## Before starting
 
@@ -18,10 +18,10 @@ Confirm with the user, or state the assumption explicitly in your first reply:
 
 ## Workflow
 
-1. Read `templates/policy/` (`model.py`, `deploy.py`, `deploy.yml`, `eval.sh`, `README.md`), then the upstream model's inference API, dependencies, and checkpoint layout.
+1. Read `policy/demo_policy/` (`model.py`, `deploy.py`, `deploy.yml`, `eval.sh`, `README.md`), then the upstream model's inference API, dependencies, and checkpoint layout.
 2. Scaffold: `bash scripts/create_policy.sh <POLICY>` (copies `demo_policy`).
 3. Implement `model.py` first (contract below). The policy server imports `XPolicyLab.policy.<POLICY>.model`, so keep the directory importable (`__init__.py`). Put environment setup in `install.sh`; add `process_data.sh` / `train.sh` only if the model supports them. If the policy trains on LeRobot data, default to the official converters — `scripts/transform_lerobot_v21_format.py` / `scripts/transform_lerobot_v30_format.py`, or a prepared export produced by them — and let `process_data.sh` only link and normalize the dataset; write a custom converter only when the model needs a layout the official keys cannot express, and document that deviation.
-4. Keep `deploy.py` aligned with `templates/policy/deploy.py` unless the environment loop truly differs. Put runtime defaults in `deploy.yml`, keeping the whole key set from `templates/policy/deploy.yml` — `policy_name` (equal to the directory name), `protocol: ws`, `host`, `port`, plus the per-run fields the setup scripts override. Keep a key even where the scripts already default it.
+4. Keep `deploy.py` aligned with `policy/demo_policy/deploy.py` unless the environment loop truly differs. Put runtime defaults in `deploy.yml`, keeping the whole key set from `policy/demo_policy/deploy.yml` — `policy_name` (equal to the directory name), `protocol: ws`, `host`, `port`, plus the per-run fields the setup scripts override. Keep a key even where the scripts already default it.
 5. Debug without a simulator, from `policy/<POLICY>/`:
 
    ```bash

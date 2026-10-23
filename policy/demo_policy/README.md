@@ -2,7 +2,7 @@
 
 **Contributor:** RoboDojo Team | **Paper:** Not applicable — XPolicyLab demo adapter | **arXiv:** Not applicable | **Original code:** Not applicable
 
-`demo_policy` is the minimal reference adapter for checking policy-server / environment-client wiring. It returns zero actions with the correct action keys and dimensions; it does not train a real model or load a checkpoint. `process_data.sh` and `train.sh` are stubs that only demonstrate the standard naming conventions.
+`demo_policy` is the minimal reference adapter for checking policy-server / environment-client wiring. It returns two-step action chunks that hold the observed joint or end-effector posture and command zero base velocity when available; it does not train a real model or load a checkpoint. `process_data.sh` and `train.sh` are stubs that only demonstrate the standard naming conventions.
 
 Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
 
@@ -52,6 +52,17 @@ EVAL_ENV_TYPE=debug bash eval.sh RoboDojo stack_bowls demo arx_x5 joint 0 0 0 <p
 ```
 
 `EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+
+## MiVerse
+
+The adapter accepts MiVerse runtime state dictionaries directly; it does not use a learned 45D or 75D model layout. Joint mode holds the arms, hands, waist and legs present in the observation. EE mode prefers `left_base_ee_pose` / `right_base_ee_pose`, holds `head_base_pose` when available, and lets whole-body IK control the waist and legs. Both modes command zero root linear and angular velocity when these fields are observed. Batch observations are matched by `additional_info.env_idx` or top-level `env_idx`, including subsets and reordered environments.
+
+```bash
+# No checkpoint is loaded; "demo" is a placeholder.
+bash eval.sh MiVerse place_fruit_basket demo miverse joint 0 0 0 <policy_conda_env> <eval_env_conda_env>
+```
+
+Use `ee` in place of `joint` to check the base-frame pose interface. This is an interface check, not a task-solving policy. Holding an EE target still runs IK and can produce small motion. The shared `EVAL_ENV_TYPE=debug` client checks transport and arm/hand shapes; its synthetic observations do not cover MiVerse waist, leg, head or base fields.
 
 ## Notes
 
