@@ -28,7 +28,7 @@ Normalization mirrors ``Server.run``: the state is quantile-mapped to [-1, 1]
 and clamped, the action chunk is produced in gaussian-normalized space and
 denormalized with ``mean``/``std``, both masked by ``action_mask``.
 
-MiVerse uses the current official-state layout:
+MobileArena uses the current official-state layout:
   state (1, 60): arms at 0:7 and 8:15, hands at 16:28 and 28:40;
   actions (30, 60): base-frame EE deltas at 0:6 and 8:14, absolute
   base velocity [vx, vy, wz] at 17:20, and hand deltas at 20:44.
@@ -303,9 +303,9 @@ class Model(ModelTemplate):
         ]
 
         state = obs.get("state", {})
-        from mibot.utils.miverse_adapter import runtime_state_to_miverse75, state75_to_xiaomi60
+        from mibot.utils.mobile_arena_adapter import runtime_state_to_mobile_arena75, state75_to_xiaomi60
 
-        current75 = runtime_state_to_miverse75(state, allow_missing=False)
+        current75 = runtime_state_to_mobile_arena75(state, allow_missing=False)
         state_np = state75_to_xiaomi60(current75).reshape(1, 60).astype(np.float32)
         current_state = {"miverse75": current75}
 
@@ -412,11 +412,11 @@ class Model(ModelTemplate):
         self, raw_actions: np.ndarray, current_state: dict[str, Any]
     ) -> list[dict[str, np.ndarray]]:
         """Restore every predicted step relative to the same current observation."""
-        from mibot.utils.miverse_adapter import xiaomi60_action_to_miverse75, unpack_miverse75
+        from mibot.utils.mobile_arena_adapter import xiaomi60_action_to_mobile_arena75, unpack_mobile_arena75
 
         current75 = np.asarray(current_state["miverse75"], dtype=np.float64)
         return [
-            unpack_miverse75(xiaomi60_action_to_miverse75(action, current75))
+            unpack_mobile_arena75(xiaomi60_action_to_mobile_arena75(action, current75))
             for action in raw_actions
         ]
 

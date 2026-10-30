@@ -17,7 +17,7 @@ _MMABC = Path(os.environ.get("MMABC_ROOT", Path(__file__).resolve().parent / "MM
 if str(_MMABC) not in sys.path:
     sys.path.insert(0, str(_MMABC))
 
-from mmabc.embodiments import miverse  # noqa: E402
+from mmabc.embodiments import mobile_arena  # noqa: E402
 
 def _str2bool(v) -> bool:
     return str(v).strip().lower() in ("1", "true", "t", "yes", "y", "on")
@@ -28,7 +28,7 @@ def _encode_camera(rgb: np.ndarray, raw: bytes | None, mode: str):
     if mode == "jpeg_rgb":
         return encode_image_bit(rgb)
     if mode == "raw_hdf5":
-        return miverse.camera_jpeg_buffer(raw)
+        return mobile_arena.camera_jpeg_buffer(raw)
     raise ValueError(mode)
 
 class SyntheticSource:
@@ -42,15 +42,15 @@ class SyntheticSource:
 
     def obs(self, t: int, env_idx: int, send: str) -> dict:
         vision = {}
-        for cam in miverse.CAMERAS.values():
+        for cam in mobile_arena.CAMERAS.values():
             rgb = self.rng.integers(0, 256, size=(*self.hw, 3), dtype=np.uint8)
             vision[cam] = {"color": _encode_camera(rgb, None, "array" if send == "raw_hdf5" else send)}
         state = {}
-        for key, dim, kind in miverse.KEYS:
+        for key, dim, kind in mobile_arena.KEYS:
             value = self.rng.normal(0.0, 0.05, dim)
             if kind == "pose":
                 value[3:] = [1.0, 0.0, 0.0, 0.0]
-            state[miverse.singular(key)] = value.astype(np.float32)
+            state[mobile_arena.singular(key)] = value.astype(np.float32)
         return {"vision": vision, "state": state, "instruction": self.instruction, "env_idx": env_idx}
 
 class ReplaySource:
@@ -68,17 +68,17 @@ class ReplaySource:
 
     def obs(self, t: int, env_idx: int, send: str) -> dict:
         vision = {}
-        for cam in miverse.CAMERAS.values():
+        for cam in mobile_arena.CAMERAS.values():
             raw = bytes(self.f[f"vision/{cam}/colors"][t])
-            rgb = miverse.decode_camera_frame(raw)
+            rgb = mobile_arena.decode_camera_frame(raw)
             vision[cam] = {"color": _encode_camera(rgb, raw, send)}
-        state = {miverse.singular(k): v[t].astype(np.float32) for k, v in self.state.items()}
+        state = {mobile_arena.singular(k): v[t].astype(np.float32) for k, v in self.state.items()}
         return {"vision": vision, "state": state, "instruction": self.instruction, "env_idx": env_idx}
 
 def validate_action(action: dict, key_style: str) -> None:
     if not isinstance(action, dict):
         raise TypeError(f"action must be a dict, got {type(action)}")
-    expected = {(miverse.singular(k) if key_style == "singular" else k): (d, kind) for k, d, kind in miverse.KEYS}
+    expected = {(mobile_arena.singular(k) if key_style == "singular" else k): (d, kind) for k, d, kind in mobile_arena.KEYS}
     extra = set(action) - set(expected)
     if extra:
         raise KeyError(f"unexpected action keys {sorted(extra)}")
@@ -146,7 +146,7 @@ def main() -> None:
                 if isinstance(src, ReplaySource):
                     for step, action in enumerate(chunks[0][: end - t]):
                         for key, rec in src.action.items():
-                            name = miverse.singular(key) if args.action_key_style == "singular" else key
+                            name = mobile_arena.singular(key) if args.action_key_style == "singular" else key
                             pred = np.asarray(action[name], dtype=np.float64)
                             ref, now = rec[t + step], src.state[key][t]
                             if key.endswith("poses"):

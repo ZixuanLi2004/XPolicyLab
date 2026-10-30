@@ -44,7 +44,7 @@ class Model(ModelTemplate):
                 key = f"{prefix}arm_joint_state"
                 dim = self.robot_action_dim_info["arm_dim"][index]
             else:
-                # MiVerse exposes poses in the robot base frame by default.
+                # MobileArena exposes poses in the robot base frame by default.
                 key = f"{prefix}base_ee_pose"
                 if key not in state:
                     key = f"{prefix}ee_pose"

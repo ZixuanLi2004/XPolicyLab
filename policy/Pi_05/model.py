@@ -28,10 +28,10 @@ from XPolicyLab.utils.process_data import (
 _POLICY_DIR = Path(__file__).resolve().parent
 _CHECKPOINTS_DIR = _POLICY_DIR / "checkpoints"
 
-# Runtime keys emitted by the 45D MiVerse head.  The two root-velocity keys
+# Runtime keys emitted by the 45D MobileArena head.  The two root-velocity keys
 # carry the three learned base controls (vx, vy, wz); unmodeled components are
 # zero-filled by miverse_layout.unpack to preserve their standard 3D shape.
-_MIVERSE_OUTPUT_KEYS = (
+_MOBILE_ARENA_OUTPUT_KEYS = (
     "left_arm_joint_state",
     "right_arm_joint_state",
     "left_ee_joint_state",
@@ -43,10 +43,10 @@ _MIVERSE_OUTPUT_KEYS = (
 )
 
 
-def _load_miverse_layout():
-    from openpi import miverse_layout
+def _load_mobile_arena_layout():
+    from openpi import mobile_arena_layout
 
-    return miverse_layout
+    return mobile_arena_layout
 
 
 def _as_bool(value: Any) -> bool:
@@ -116,11 +116,11 @@ class Model(ModelTemplate):
     def __init__(self, model_cfg: dict[str, Any]):
         self.task_name = model_cfg["task_name"]
         self.action_type = model_cfg.get("action_type", "joint")
-        self.miverse_mode = _as_bool(model_cfg.get("miverse", False))
-        self.miverse = _load_miverse_layout() if self.miverse_mode else None
+        self.mobile_arena_mode = _as_bool(model_cfg.get("mobile_arena", model_cfg.get("miverse", False)))
+        self.mobile_arena = _load_mobile_arena_layout() if self.mobile_arena_mode else None
         self.robot_action_dim_info = (
             None
-            if self.miverse_mode
+            if self.mobile_arena_mode
             else (
                 get_robot_action_dim_info(model_cfg["env_cfg_type"])
                 if model_cfg.get("env_cfg_type") is not None
@@ -134,9 +134,9 @@ class Model(ModelTemplate):
         self.model = self.policy
 
     def get_model(self, model_cfg: dict[str, Any]):
-        default_config = "pi05_miverse_full" if self.miverse_mode else "pi05_base_aloha_full_sim_arx-x5_seed_0"
+        default_config = "pi05_miverse_full" if self.mobile_arena_mode else "pi05_base_aloha_full_sim_arx-x5_seed_0"
         train_config_name = model_cfg.get("train_config_name", default_config)
-        repo_id = model_cfg.get("repo_id", "miverse_data" if self.miverse_mode else "1118")
+        repo_id = model_cfg.get("repo_id", "miverse_data" if self.mobile_arena_mode else "1118")
         model_root = _resolve_pi05_model_root(model_cfg)
 
         config = _config.get_config(train_config_name)
@@ -145,7 +145,7 @@ class Model(ModelTemplate):
             norm_stats = _normalize.load(model_root / "assets" / str(repo_id))
 
         repack_transforms = None
-        if self.miverse_mode:
+        if self.mobile_arena_mode:
             repack_transforms = _transforms.Group(
                 inputs=[
                     _transforms.RepackTransform(
@@ -170,8 +170,8 @@ class Model(ModelTemplate):
         self._latest_env_idx_list = [obs.get("env_idx", index) for index, obs in enumerate(obs_list)]
         encoded_obs_list = []
         for obs in obs_list:
-            encoded = encode_obs(obs, self.action_type, self.robot_action_dim_info, self.miverse)
-            if self.miverse is not None and not encoded["prompt"]:
+            encoded = encode_obs(obs, self.action_type, self.robot_action_dim_info, self.mobile_arena)
+            if self.mobile_arena is not None and not encoded["prompt"]:
                 encoded["prompt"] = self.task_name or ""
             encoded_obs_list.append(encoded)
         self.observation_window = stack_obs(encoded_obs_list)
@@ -193,8 +193,8 @@ class Model(ModelTemplate):
         for batch_index in batch_indices:
             single_observation = slice_stacked_obs(self.observation_window, batch_index)
             actions = self.policy.infer(single_observation, **kwargs)["actions"]
-            if self.miverse is not None:
-                action_list.append(unpack_miverse_actions(actions, self.miverse))
+            if self.mobile_arena is not None:
+                action_list.append(unpack_mobile_arena_actions(actions, self.mobile_arena))
             elif self.robot_action_dim_info is None:
                 action_list.append(actions)
             else:
@@ -217,9 +217,9 @@ class Model(ModelTemplate):
         self.reset()
 
 
-def encode_obs(observation, action_type, robot_action_dim_info, miverse=None):
-    if miverse is not None:
-        return encode_miverse_obs(observation, miverse)
+def encode_obs(observation, action_type, robot_action_dim_info, mobile_arena=None):
+    if mobile_arena is not None:
+        return encode_mobile_arena_obs(observation, mobile_arena)
 
     if "images" in observation and "state" in observation:
         state = np.asarray(observation["state"], dtype=np.float32)
@@ -249,7 +249,7 @@ def encode_obs(observation, action_type, robot_action_dim_info, miverse=None):
 
 
 
-def _extract_miverse_image(observation: dict[str, Any], names: tuple[str, ...]):
+def _extract_mobile_arena_image(observation: dict[str, Any], names: tuple[str, ...]):
     source = observation.get("images") or observation.get("vision") or {}
     for name in names:
         if name not in source:
@@ -264,26 +264,26 @@ def _extract_miverse_image(observation: dict[str, Any], names: tuple[str, ...]):
     raise KeyError(f"Could not find MiVerse camera; tried {names}")
 
 
-def encode_miverse_obs(observation: dict[str, Any], miverse) -> dict[str, Any]:
+def encode_mobile_arena_obs(observation: dict[str, Any], mobile_arena) -> dict[str, Any]:
     raw_state = observation.get("state")
     if isinstance(raw_state, Mapping):
-        state = miverse.pack(raw_state)
+        state = mobile_arena.pack(raw_state)
     else:
         state = np.asarray(raw_state, dtype=np.float32)
-        if state.shape[-1] != miverse.MODEL_DIM:
-            state = miverse.pack(observation)
+        if state.shape[-1] != mobile_arena.MODEL_DIM:
+            state = mobile_arena.pack(observation)
 
     images = {
         "cam_high": ensure_chw_uint8(
-            _extract_miverse_image(observation, ("cam_head", "primary", "head_camera", "top_camera")),
+            _extract_mobile_arena_image(observation, ("cam_head", "primary", "head_camera", "top_camera")),
             size=(224, 224),
         ),
         "cam_left_wrist": ensure_chw_uint8(
-            _extract_miverse_image(observation, ("cam_left_wrist", "wrist_left", "left_camera")),
+            _extract_mobile_arena_image(observation, ("cam_left_wrist", "wrist_left", "left_camera")),
             size=(224, 224),
         ),
         "cam_right_wrist": ensure_chw_uint8(
-            _extract_miverse_image(observation, ("cam_right_wrist", "wrist_right", "right_camera")),
+            _extract_mobile_arena_image(observation, ("cam_right_wrist", "wrist_right", "right_camera")),
             size=(224, 224),
         ),
     }
@@ -293,19 +293,19 @@ def encode_miverse_obs(observation: dict[str, Any], miverse) -> dict[str, Any]:
     return {"state": np.asarray(state, dtype=np.float32), "images": images, "prompt": str(prompt)}
 
 
-def unpack_miverse_actions(actions, miverse) -> list[dict[str, np.ndarray]]:
-    """Return only keys represented by the learned 45D MiVerse head."""
+def unpack_mobile_arena_actions(actions, mobile_arena) -> list[dict[str, np.ndarray]]:
+    """Return only keys represented by the learned 45D MobileArena head."""
     actions = np.asarray(actions)
     if actions.ndim == 1:
         actions = actions[None, :]
-    keyed = miverse.unpack(actions, key_style="singular")
+    keyed = mobile_arena.unpack(actions, key_style="singular")
     # Keep deployment output closed over the trained contract.  In particular,
     # do not synthesize pose/head keys that are present in the raw HDF5 schema.
-    missing = [key for key in _MIVERSE_OUTPUT_KEYS if key not in keyed]
+    missing = [key for key in _MOBILE_ARENA_OUTPUT_KEYS if key not in keyed]
     if missing:
         raise KeyError(f"MiVerse layout did not provide output keys: {missing}")
     return [
-        {key: np.asarray(keyed[key])[step] for key in _MIVERSE_OUTPUT_KEYS}
+        {key: np.asarray(keyed[key])[step] for key in _MOBILE_ARENA_OUTPUT_KEYS}
         for step in range(actions.shape[0])
     ]
 
@@ -369,7 +369,7 @@ def ensure_chw_uint8(image, size=None):
         raise ValueError(f"Unsupported image shape: {image.shape}")
 
     if size is not None:
-        # Match process_miverse.py before OpenPI's aspect-preserving resize.
+        # Match process_mobile_arena.py before OpenPI's aspect-preserving resize.
         image_hwc = cv2.resize(image_hwc, size, interpolation=cv2.INTER_LINEAR)
         if image_hwc.ndim == 2:
             image_hwc = image_hwc[..., None]

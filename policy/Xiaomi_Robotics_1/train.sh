@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Usage: bash train.sh MiVerse <ckpt_name> miverse ee <seed> <gpu_ids> [hydra_overrides...]
+# Usage: bash train.sh MobileArena <ckpt_name> mobile_arena ee <seed> <gpu_ids> [hydra_overrides...]
 # Run in the installed mibot environment. Multi-node: set WORLD_SIZE, RANK,
 # MASTER_ADDR and MASTER_PORT on every node; WORLD_SIZE is the node count here.
 set -euo pipefail
 if [[ $# -lt 6 ]]; then
-    echo "Usage: $0 MiVerse <ckpt_name> miverse ee <seed> <gpu_ids> [hydra_overrides...]" >&2
+    echo "Usage: $0 MobileArena <ckpt_name> mobile_arena ee <seed> <gpu_ids> [hydra_overrides...]" >&2
     exit 1
 fi
 bench_name=$1
@@ -14,15 +14,15 @@ action_type=$4
 seed=$5
 gpu_id=$6
 shift 6
-if [[ "${bench_name}" != MiVerse || "${action_type}" != ee ]]; then
-    echo "Xiaomi_Robotics_1 supports MiVerse end-effector training (MiVerse ... ee)." >&2
+if [[ ( "${bench_name}" != MobileArena && "${bench_name}" != MiVerse ) || "${action_type}" != ee ]]; then
+    echo "Xiaomi_Robotics_1 supports MobileArena end-effector training (MobileArena ... ee)." >&2
     exit 1
 fi
 POLICY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XR1_DIR="${POLICY_DIR}/xiaomi_robotics_1/xr1"
 ckpt_setting="${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}-${seed}"
-output_dir="${MIVERSE_OUTPUT_ROOT:-${POLICY_DIR}/data/miverse_native}"
-config_name="${DATA_CONFIG_NAME:-miverse_native}"
+output_dir="${MOBILE_ARENA_OUTPUT_ROOT:-${MIVERSE_OUTPUT_ROOT:-${POLICY_DIR}/data/miverse_native}}"
+config_name="${DATA_CONFIG_NAME:-mobile_arena_native}"
 config_path="${XR1_DIR}/configs/data/${config_name}.yaml"
 pretrained_path="${PRETRAINED_PATH:-${POLICY_DIR}/checkpoints/pretrained_ckpt/model_states.pt}"
 run_root="${RUN_ROOT:-${POLICY_DIR}/train_runs/${ckpt_setting}}"
@@ -53,7 +53,7 @@ export WANDB_MODE="${WANDB_MODE:-offline}"
 export WANDB_DIR="${WANDB_DIR:-${run_root}}"
 cd "${XR1_DIR}"
 exec bash scripts/train.sh \
-    "data=${config_name}" "model=posttrain_miverse" \
+    "data=${config_name}" "model=posttrain_mobile_arena" \
     "data.params.train_datasets.paths=[${output_dir}/data]" \
     "data.params.train_datasets.batch_size=${BATCH_SIZE:-8}" \
     "data.params.num_workers=${NUM_WORKERS:-16}" \

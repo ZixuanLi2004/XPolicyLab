@@ -1,10 +1,10 @@
 # MM-ABC source package
 
 MM-ABC combines a Qwen3-VL backbone with a rectified-flow action expert for
-MiVerse manipulation. The XPolicyLab adapter is in the parent directory; see
+MobileArena manipulation. The XPolicyLab adapter is in the parent directory; see
 [its README](../README.md) for installation and closed-loop evaluation.
 
-The default 75-dimensional MiVerse recipe uses **velocity prediction
+The default 75-dimensional MobileArena recipe uses **velocity prediction
 (`pred_type: v`)**. The optional 80-dimensional pretrain
 recipe uses clean-action prediction (`pred_type: x`). Both use velocity-space loss.
 Use the prediction type saved with a checkpoint when loading existing weights.
@@ -30,17 +30,17 @@ Model weights, datasets, videos, logs and checkpoints are external assets.
 
 ## Model configurations
 
-| Setting | 75-d miverse layout | 80-d compatible layout |
+| Setting | 75-d mobile_arena layout | 80-d compatible layout |
 | --- | --- | --- |
-| Training config | `configs/train/miverse.yaml` | `configs/train/miverse_pretrain.yaml` |
-| Model config | `configs/model/mmabc_4b_miverse.yaml` | `configs/model/mmabc_4b_miverse_pretrain.yaml` |
+| Training config | `configs/train/mobile_arena.yaml` | `configs/train/mobile_arena_pretrain.yaml` |
+| Model config | `configs/model/mmabc_4b_mobile_arena.yaml` | `configs/model/mmabc_4b_mobile_arena_pretrain.yaml` |
 | Initialisation | Pretrained Qwen3-VL backbone, fresh expert | Compatible MM-ABC weights via `init_from` |
 | Action targets | Absolute commands, min-max normalised | Layout-defined increments and absolute commands |
 | Flow | v-pred, v-loss | x-pred, v-loss |
 | Time weights | Unit weight | Normalised to unit batch mean |
 | Prompt | Task instruction | Embodiment/control header and task instruction |
 
-Both miverse configurations use 32-step action chunks, execute 16 steps before
+Both mobile_arena configurations use 32-step action chunks, execute 16 steps before
 replanning, and use 10 Euler integration steps. The backbone provides four
 context taps to the action expert. Optional frozen visual teachers supervise
 future-frame representations; action tokens cannot attend to future tokens.
@@ -50,9 +50,9 @@ prediction, the velocity-space squared error weights the clean-action squared
 error by `1 / max(1 - t, sigma_min)^2`. `normalize_weight` optionally rescales
 these weights to a unit batch mean.
 
-The included embodiment is the `m92uw` miverse platform: two 7-DoF arms, two
+The included embodiment is the `m92uw` mobile_arena platform: two 7-DoF arms, two
 12-DoF hands, waist, leg, head pose and base velocity. The mapping is in
-`mmabc/embodiments/miverse.py`. It accepts singular runtime keys and plural
+`mmabc/embodiments/mobile_arena.py`. It accepts singular runtime keys and plural
 trajectory keys. The 75-d layout stores poses as position plus rotation-6D.
 The 80-d layout preserves pretraining slots, stores planar base twist only,
 and places head pose in the reserved block. Its inverse sets `vz`, `wx` and
@@ -60,28 +60,28 @@ and places head pose in the reserved block. Its inverse sets `vz`, `wx` and
 
 ## Data processing
 
-The converter reads original MiVerse HDF5 episodes from
+The converter reads original MobileArena HDF5 episodes from
 `<source>/<task>/<episode-subdir>/episode_*.hdf5`; `episode-subdir` defaults to
 `miverse/data` and is configurable. Episodes must contain the state/action keys from
-`mmabc/embodiments/miverse.py`, `instruction`, and encoded camera frames under
+`mmabc/embodiments/mobile_arena.py`, `instruction`, and encoded camera frames under
 `vision/<camera>/colors`. The supported cameras are `cam_head`,
 `cam_left_wrist` and `cam_right_wrist`.
 
 ```bash
-python scripts/convert_miverse.py \
+python scripts/convert_mobile_arena.py \
   --src /path/to/trajectories \
   --episode-subdir miverse/data \
   --out ../data/miverse_mmabc \
   --workers 8
 
 # Optional: derive the compatible 80-d profiles after the first conversion.
-python scripts/build_miverse_c80.py
+python scripts/build_mobile_arena_c80.py
 ```
 
-MiVerse's original standard JPEGs predate the `XPL-RGB1` marker. The converter
+MobileArena's original standard JPEGs predate the `XPL-RGB1` marker. The converter
 marks an in-memory copy before calling shared `decode_image_bit`; already-marked
 standard JPEGs are accepted too. Legacy channel-reversed XPL JPEGs must not be
-passed to this MiVerse-specific converter. Frames are
+passed to this MobileArena-specific converter. Frames are
 resized to 224×224 with the same helper used during inference and written as
 RGB-derived H.264 videos. No caller-side channel swap is applied.
 
@@ -105,22 +105,22 @@ source profiles available.
 
 Place the backbone and optional teacher assets at the paths in the selected
 model configuration before launching. A compatible weights-only checkpoint is
-also required for `miverse_pretrain.yaml`:
+also required for `mobile_arena_pretrain.yaml`:
 
 ```bash
 python scripts/export_pretrain_weights.py \
   --src /path/to/resume/step_00200000 \
   --out ../pretrained_ckpt/mmabc_pretrain_200k
 
-bash scripts/train_single_node.sh configs/train/miverse_smoke.yaml
-bash scripts/train_single_node.sh configs/train/miverse.yaml
-bash scripts/train_single_node.sh configs/train/miverse_pretrain.yaml
+bash scripts/train_single_node.sh configs/train/mobile_arena_smoke.yaml
+bash scripts/train_single_node.sh configs/train/mobile_arena.yaml
+bash scripts/train_single_node.sh configs/train/mobile_arena_pretrain.yaml
 ```
 
 Training settings accept dotlist overrides:
 
 ```bash
-NPROC=1 bash scripts/train_single_node.sh configs/train/miverse.yaml \
+NPROC=1 bash scripts/train_single_node.sh configs/train/mobile_arena.yaml \
   micro_batch_size=1 max_steps=100 \
   model_overrides.backbone.gradient_checkpointing=true
 ```
@@ -151,7 +151,7 @@ variables to remote nodes.
 
 ```bash
 HOSTFILE=/path/to/hostfile NPROC=8 \
-  bash scripts/train_multinode.sh configs/train/miverse.yaml
+  bash scripts/train_multinode.sh configs/train/mobile_arena.yaml
 
 HOSTFILE=/path/to/hostfile NPROC=8 \
   bash scripts/run_multinode.sh scripts/nccl_verify.py
@@ -176,11 +176,11 @@ Closed-loop evaluation uses the parent XPolicyLab adapter. The runtime adapter
 expects already-decoded RGB arrays from the policy server.
 
 ```python
-from mmabc.eval.adapters.miverse import MiVerseAdapter
+from mmabc.eval.adapters.mobile_arena import MobileArenaAdapter
 from mmabc.eval.policy import MMABCInferencePolicy
 
 policy = MMABCInferencePolicy.from_run("/path/to/milestones/step_00060000")
-adapter = MiVerseAdapter(variant="m75")  # use "c80" with the 80-d layout
+adapter = MobileArenaAdapter(variant="m75")  # use "c80" with the 80-d layout
 observation = adapter.observe(raw_observation, instruction)
 actions = adapter.from_canonical_action(policy.act(observation)["action_canonical"])
 ```

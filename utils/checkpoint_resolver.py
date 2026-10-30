@@ -144,6 +144,22 @@ def candidate_checkpoint_roots(
         if ckpt_name:
             add(checkpoints_dir / ckpt_name)
 
+        # Benchmark rename compatibility: current and explicitly named roots
+        # win. Never rewrite ckpt_name itself (it is a user/model identifier).
+        bench = _clean(model_cfg.get("bench_name") or model_cfg.get("dataset_name"))
+        profile = _clean(model_cfg.get("env_cfg_type"))
+        if bench in ("MobileArena", "MiVerse"):
+            benches = (bench, "MiVerse" if bench == "MobileArena" else "MobileArena")
+            profiles = (profile,)
+            if profile in ("mobile_arena", "miverse"):
+                profiles += ("miverse" if profile == "mobile_arena" else "mobile_arena",)
+            for alias_bench in benches:
+                for alias_profile in profiles:
+                    alias = dict(model_cfg, bench_name=alias_bench, env_cfg_type=alias_profile)
+                    name = build_run_dir_name(alias, include_seed=include_seed)
+                    if name:
+                        add(checkpoints_dir / name)
+
     return roots
 
 

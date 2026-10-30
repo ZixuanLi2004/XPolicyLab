@@ -9,13 +9,13 @@ port: null
 host: localhost
 
 # Identifiers + per-launch wiring (set via --overrides from the eval scripts).
-bench_name: MiVerse
+bench_name: MobileArena
 task_name: null
 ckpt_name: null
-env_cfg_type: miverse
+env_cfg_type: mobile_arena
 action_type: joint
 action_dim: 45
-miverse: true
+mobile_arena: true
 seed: null
 
 # Policy artefacts: resolved in setup_eval_policy_server.sh from ckpt_name.
@@ -25,7 +25,7 @@ dataset_stats_path: null
 # FastWAM upstream policy hyperparameters.  The task must match the MiVerse
 # training config so the composed model keeps action/proprio dimensions at 45.
 sim_cfg_name: sim_robotwin.yaml
-sim_task: miverse_uncond_3cam_384_1e-4
+sim_task: mobile_arena_uncond_3cam_384_1e-4
 device: cuda
 mixed_precision: bf16
 # null -> upstream default (num_frames - 1, typically 32 for robotwin).

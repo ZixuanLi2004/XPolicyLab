@@ -10,7 +10,7 @@ from torchvision.transforms import InterpolationMode
 from torchvision.transforms import functional as tv_resize
 
 from XPolicyLab.model_template import ModelTemplate
-from XPolicyLab.utils import miverse_joint_layout
+from XPolicyLab.utils import mobile_arena_joint_layout
 from XPolicyLab.utils.process_data import (
     get_robot_action_dim_info,
     pack_robot_state,
@@ -37,10 +37,10 @@ def _is_none_like(value: Any) -> bool:
     return isinstance(value, str) and value.strip().lower() in {"", "none", "null"}
 
 
-def _standardize_rgb(image: np.ndarray, *, miverse: bool = False) -> np.ndarray:
+def _standardize_rgb(image: np.ndarray, *, mobile_arena: bool = False) -> np.ndarray:
     """Apply the same per-camera resize used before FastWAM training.
 
-    MiVerse MP4s are written as 224x224 frames by ``process_miverse.py`` and
+    MobileArena MP4s are written as 224x224 frames by ``process_mobile_arena.py`` and
     the FastWAM processor then resizes each camera to 240x320 before the
     three-camera RobotWin mosaic is built.  Runtime observations arrive at
     their native camera size, so replaying only the final 240x320 resize would
@@ -51,7 +51,7 @@ def _standardize_rgb(image: np.ndarray, *, miverse: bool = False) -> np.ndarray:
         raise ValueError(f"Expected HWC image with 3 channels, got {image.shape}")
     if image.dtype != np.uint8:
         image = np.clip(image, 0, 255).astype(np.uint8)
-    if miverse and image.shape[:2] != (224, 224):
+    if mobile_arena and image.shape[:2] != (224, 224):
         image = cv2.resize(image, (224, 224), interpolation=cv2.INTER_LINEAR)
     if image.shape[:2] != (240, 320):
         # Match FastWAMProcessor's torchvision Resize(BILINEAR, antialias=True)
@@ -90,10 +90,10 @@ class Model(ModelTemplate):
         self.model_cfg = dict(model_cfg)
         self.action_type = self.model_cfg["action_type"]
         self.env_cfg_type = self.model_cfg.get("env_cfg_type")
-        self.miverse_mode = _is_true(self.model_cfg.get("miverse", True))
-        if self.miverse_mode:
+        self.mobile_arena_mode = _is_true(self.model_cfg.get("mobile_arena", self.model_cfg.get("miverse", True)))
+        if self.mobile_arena_mode:
             configured_dim = self.model_cfg.get("action_dim")
-            if configured_dim is not None and int(configured_dim) != miverse_joint_layout.MODEL_DIM:
+            if configured_dim is not None and int(configured_dim) != mobile_arena_joint_layout.MODEL_DIM:
                 raise ValueError(f"FastWAM MiVerse requires action_dim=45, got {configured_dim}.")
         self.action_horizon = 1
         self.replan_steps = int(self.model_cfg.get("replan_steps") or 24)
@@ -103,7 +103,7 @@ class Model(ModelTemplate):
             or "follow the instruction"
         )
         self.robot_action_dim_info = (
-            None if self.miverse_mode else get_robot_action_dim_info(self.env_cfg_type)
+            None if self.mobile_arena_mode else get_robot_action_dim_info(self.env_cfg_type)
         )
         self.last_obs = None
         self.last_instruction = self.default_instruction
@@ -139,8 +139,8 @@ class Model(ModelTemplate):
 
     def _encode_obs_for_fastwam(self, obs: dict) -> dict:
         vision = obs["vision"]
-        if self.miverse_mode:
-            state_vector = miverse_joint_layout.pack(obs.get("state", obs)).astype(np.float32)
+        if self.mobile_arena_mode:
+            state_vector = mobile_arena_joint_layout.pack(obs.get("state", obs)).astype(np.float32)
         else:
             state_vector = pack_robot_state(
                 obs,
@@ -151,9 +151,9 @@ class Model(ModelTemplate):
             ).astype(np.float32)
         return {
             "observation": {
-                "head_camera": {"rgb": _standardize_rgb(vision["cam_head"]["color"], miverse=self.miverse_mode)},
-                "left_camera": {"rgb": _standardize_rgb(vision["cam_left_wrist"]["color"], miverse=self.miverse_mode)},
-                "right_camera": {"rgb": _standardize_rgb(vision["cam_right_wrist"]["color"], miverse=self.miverse_mode)},
+                "head_camera": {"rgb": _standardize_rgb(vision["cam_head"]["color"], mobile_arena=self.mobile_arena_mode)},
+                "left_camera": {"rgb": _standardize_rgb(vision["cam_left_wrist"]["color"], mobile_arena=self.mobile_arena_mode)},
+                "right_camera": {"rgb": _standardize_rgb(vision["cam_right_wrist"]["color"], mobile_arena=self.mobile_arena_mode)},
             },
             "joint_action": {"vector": state_vector},
         }
@@ -173,8 +173,8 @@ class Model(ModelTemplate):
             self._batch_instruction[env_idx] = _get_instruction(obs, self.default_instruction)
 
     def _zero_actions(self):
-        if self.miverse_mode:
-            return [miverse_joint_layout.unpack(row) for row in np.zeros((self.replan_steps, 45), dtype=np.float32)]
+        if self.mobile_arena_mode:
+            return [mobile_arena_joint_layout.unpack(row) for row in np.zeros((self.replan_steps, 45), dtype=np.float32)]
         dim = sum(self.robot_action_dim_info["arm_dim"]) + sum(self.robot_action_dim_info["ee_dim"])
         zeros = np.zeros((self.replan_steps, dim), dtype=np.float32)
         return unpack_robot_state(zeros, self.action_type, self.robot_action_dim_info, source_type="obs")
@@ -190,8 +190,8 @@ class Model(ModelTemplate):
             action_chunk = action_chunk[None, :]
         n_exec = min(self.replan_steps, action_chunk.shape[0])
         action_chunk = action_chunk[:n_exec]
-        if self.miverse_mode:
-            return [miverse_joint_layout.unpack(row) for row in action_chunk]
+        if self.mobile_arena_mode:
+            return [mobile_arena_joint_layout.unpack(row) for row in action_chunk]
         return unpack_robot_state(action_chunk, self.action_type, self.robot_action_dim_info, source_type="obs")
 
     def get_action(self):

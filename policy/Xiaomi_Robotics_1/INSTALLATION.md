@@ -13,7 +13,7 @@ processor location. Model weights are supplied separately:
 - Initial training: set `PRETRAINED_PATH` to the converted Xiaomi pretrained
   `model_states.pt`; `xiaomi_robotics_1/xr1/tools/weight_convert.py` provides the
   upstream conversion entry.
-- MiVerse evaluation: set `XR1_CKPT_DIR` to the current official-state training
+- MobileArena evaluation: set `XR1_CKPT_DIR` to the current official-state training
   artifact directory containing `config.py` and `last.ckpt/checkpoint/`.
 
 Activate `mibot` before running `process_data.sh` or `train.sh`. Evaluation accepts

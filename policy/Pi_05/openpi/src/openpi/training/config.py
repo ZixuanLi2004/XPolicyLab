@@ -743,7 +743,7 @@ _CONFIGS = [
         fsdp_devices=2,
         num_train_steps=60000,
     ),
-    # MiVerse m92uw: selected 45D controllable state/action and three RGB cameras.
+    # MobileArena m92uw: selected 45D controllable state/action and three RGB cameras.
     # Full-parameter training; the 45D projection layers are randomly initialized because
     # the released pi05_base checkpoint has 32D action/state projections.
     TrainConfig(

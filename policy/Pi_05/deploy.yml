@@ -2,9 +2,9 @@
 policy_name: Pi_05
 protocol: ws
 host: localhost
-bench_name: MiVerse
+bench_name: MobileArena
 task_name: null
-env_cfg_type: miverse
+env_cfg_type: mobile_arena
 seed: null
 eval_batch: true
 
@@ -20,6 +20,6 @@ policy_uv_env_path: openpi
 # Must match the config used by train.sh (default OPENPI_TRAIN_CONFIG_NAME).
 train_config_name: pi05_miverse_full
 repo_id: miverse_data
-miverse: true
+mobile_arena: true
 
 port: 6000

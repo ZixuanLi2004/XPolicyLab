@@ -49,7 +49,7 @@ class Model(ModelTemplate):
         super().__init__()
         self.model_cfg = dict(model_cfg)
         env_cfg_type = _clean(self.model_cfg.get("env_cfg_type"))
-        if env_cfg_type not in (None, "m92uw", "miverse"):
+        if env_cfg_type not in (None, "m92uw", "mobile_arena", "miverse"):
             raise ValueError(f"MM_ABC supports the MiVerse m92uw robot, got {env_cfg_type!r}")
         self.action_type = self.model_cfg.get("action_type") or "joint"
         if self.action_type != "joint":
@@ -59,11 +59,11 @@ class Model(ModelTemplate):
         mmabc_root = Path(_clean(self.model_cfg.get("mmabc_root")) or DEFAULT_MMABC_ROOT).resolve()
         if str(mmabc_root) not in sys.path:
             sys.path.insert(0, str(mmabc_root))
-        from mmabc.embodiments import miverse
-        from mmabc.eval.adapters.miverse import MiVerseAdapter
+        from mmabc.embodiments import mobile_arena
+        from mmabc.eval.adapters.mobile_arena import MobileArenaAdapter
 
-        self.miverse = miverse
-        self.adapter = MiVerseAdapter(
+        self.mobile_arena = mobile_arena
+        self.adapter = MobileArenaAdapter(
             allow_missing_state=_as_bool(self.model_cfg.get("allow_missing_state_keys")),
             action_key_style=str(self.model_cfg.get("action_key_style") or "singular"),
         )
@@ -106,7 +106,7 @@ class Model(ModelTemplate):
         print(
             f"[MM_ABC] ready (mock={self.mock}) checkpoint={self.checkpoint} layout={self.adapter.variant} "
             f"chunk={self.chunk_size} execute_steps={self.execute_steps} "
-            f"cameras={list(miverse.CAMERAS.values())}",
+            f"cameras={list(mobile_arena.CAMERAS.values())}",
             flush=True,
         )
 

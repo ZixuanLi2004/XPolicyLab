@@ -10,7 +10,7 @@ RAW_DIM = 69
 FPS = 30.0
 ROBOT_TYPE = "m92uw"
 EMBODIMENT_TAG = "miverse_m92uw"
-ENV_CFG_TYPES = frozenset({"m92uw", "miverse", "miverse_m92uw", "mobile", "mobile_m92uw"})
+ENV_CFG_TYPES = frozenset({"mobile_arena", "m92uw", "miverse", "miverse_m92uw", "mobile", "mobile_m92uw"})
 
 # HDF5 key, width, and whether the value is a [x,y,z,qw,qx,qy,qz] pose.
 KEYS = (
@@ -77,9 +77,9 @@ def uses_hdf5(metadata: Mapping[str, object]) -> bool:
 
 
 def decode_camera_frame(image_bits) -> np.ndarray:
-    """Decode MiVerse standard JPEGs through the shared RGB decoder.
+    """Decode MobileArena standard JPEGs through the shared RGB decoder.
 
-    Original MiVerse JPEGs predate XPL's RGB marker. Add the marker in memory
+    Original MobileArena JPEGs predate XPL's RGB marker. Add the marker in memory
     so the shared decoder recognizes their standard RGB convention. Source
     HDF5 buffers are never rewritten.
     """

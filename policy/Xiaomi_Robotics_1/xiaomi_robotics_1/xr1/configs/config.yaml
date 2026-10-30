@@ -2,6 +2,6 @@
 
 defaults:
   - _self_
-  - data: miverse_native
-  - model: posttrain_miverse
+  - data: mobile_arena_native
+  - model: posttrain_mobile_arena
   - trainer: deepspeed

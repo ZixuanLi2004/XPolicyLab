@@ -24,7 +24,7 @@ IFS=',' read -r -a gpus <<<"${gpu_ids}"
 for i in "${!gpus[@]}"; do
     port=$(( base_port + i ))
     bash "${SCRIPT_DIR}/setup_eval_policy_server.sh" \
-        "${BENCH_NAME:-MiVerse}" "${TASK_NAME:-default}" "${ckpt_name}" "${ENV_CFG_TYPE:-miverse}" joint "${SEED:-0}" "${gpus[$i]}" \
+        "${BENCH_NAME:-MobileArena}" "${TASK_NAME:-default}" "${ckpt_name}" "${ENV_CFG_TYPE:-mobile_arena}" joint "${SEED:-0}" "${gpus[$i]}" \
         "${policy_conda_env}" "${port}" 0.0.0.0 "$@" > "${LOGDIR}/gpu${gpus[$i]}.log" 2>&1 &
     PIDS+=($!)
 done
@@ -34,5 +34,5 @@ for i in "${!gpus[@]}"; do
     bash "${UTILS_DIR}/wait_for_policy_server.sh" localhost "${port}" "${PIDS[$i]}" "MM_ABC server gpu${gpus[$i]}" 1800
     echo "[SERVER] ready: ws://${advertise}:${port}   (gpu ${gpus[$i]}, log ${LOGDIR}/gpu${gpus[$i]}.log)"
 done
-echo "[SERVER] all ${#gpus[@]} servers up; point each MiVerse client at one address above. Ctrl-C to stop."
+echo "[SERVER] all ${#gpus[@]} servers up; point each MobileArena client at one address above. Ctrl-C to stop."
 wait

@@ -15,7 +15,7 @@ shift 6
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XPL_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 WORKSPACE_ROOT="$(cd "${XPL_ROOT}/.." && pwd)"
-if [[ "${env_cfg_type,,}" == "m92uw" || "${env_cfg_type,,}" == "miverse" || "${env_cfg_type,,}" == "miverse_m92uw" || "${env_cfg_type,,}" == "mobile" || "${env_cfg_type,,}" == "mobile_m92uw" ]]; then
+if [[ "${env_cfg_type,,}" == "m92uw" || "${env_cfg_type,,}" == "mobile_arena" || "${env_cfg_type,,}" == "miverse" || "${env_cfg_type,,}" == "miverse_m92uw" || "${env_cfg_type,,}" == "mobile" || "${env_cfg_type,,}" == "mobile_m92uw" ]]; then
     action_dim=75
 else
     action_dim=$(bash "${XPL_ROOT}/utils/get_action_dim.sh" "${WORKSPACE_ROOT}" "${env_cfg_type}")

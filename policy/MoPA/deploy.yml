@@ -19,5 +19,5 @@ execute_steps: null
 action_key_style: singular
 # Use bgr only for a checkpoint trained on BGR images; server input is always RGB.
 input_color_order: rgb
-miverse_action_contract: mopa75
+mobile_arena_action_contract: mopa75
 request_timeout_s: 120

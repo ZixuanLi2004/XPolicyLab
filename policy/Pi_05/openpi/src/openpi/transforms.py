@@ -339,7 +339,7 @@ class PromptFromLeRobotTask(DataTransformFn):
         if columns is not None and index is not None and "task_index" in columns:
             matches = self.tasks[self.tasks["task_index"] == task_index]
             if len(matches) > 0:
-                # MiVerse/LeRobot v3 stores natural language in the explicit
+                # MobileArena/LeRobot v3 stores natural language in the explicit
                 # ``task`` column and keeps a numeric RangeIndex.  Prefer the
                 # column whenever present; falling back to the index preserves
                 # compatibility with older LeRobot task tables.

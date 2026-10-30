@@ -3,10 +3,10 @@ protocol: ws
 host: localhost
 port: null
 
-bench_name: MiVerse
+bench_name: MobileArena
 task_name: null
 ckpt_name: null
-env_cfg_type: miverse
+env_cfg_type: mobile_arena
 seed: null
 action_type: joint
 gpu_id: null

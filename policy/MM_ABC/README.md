@@ -1,9 +1,18 @@
 # MM_ABC
 
+MobileArena was previously named MiVerse. Use `--bench MobileArena` and the
+`mobile_arena` environment profile for new evaluations. Existing checkpoint
+run directories named `MiVerse-...-miverse-...` remain readable. Source modules, scripts and configuration filenames use
+`mobile_arena`.
+Persisted model normalization keys and published dataset subdirectories retain
+their original identifiers for checkpoint/data compatibility. Do not rename
+checkpoint contents.
+
+
 **Model:** MM-ABC | **Source:** included in [`MM_ABC/`](MM_ABC/README.md)
 
 MM-ABC combines a Qwen3-VL backbone with a dual-stream flow-matching action
-expert for MiVerse manipulation. The default scratch recipe uses
+expert for MobileArena manipulation. The default scratch recipe uses
 **velocity prediction (`pred_type: v`)**. The optional pretrained
 80-dimensional recipe uses clean-action prediction (`pred_type: x`); both use
 velocity-space loss (`loss_type: v`).
@@ -11,10 +20,10 @@ The adapter includes data conversion, training, checkpoint loading, and websocke
 inference. Shared argument and deployment conventions are in the
 [XPolicyLab README](../../README.md).
 
-Use `bench_name=MiVerse`, `env_cfg_type=miverse` (or `m92uw`) and
+Use `bench_name=MobileArena`, `env_cfg_type=mobile_arena` (or `m92uw`) and
 `action_type=joint`: two arms, dexterous
 hands, waist, leg, wrist/head poses, and base velocities. Its 11 action fields
-are defined in `MM_ABC/mmabc/embodiments/miverse.py`; the full miverse layout extends
+are defined in `MM_ABC/mmabc/embodiments/mobile_arena.py`; the full mobile_arena layout extends
 the shared arm/gripper dimension schema. Training freezes the layout and
 normalization metadata with each checkpoint. Other robots require a matching
 embodiment configuration and environment client.
@@ -52,17 +61,17 @@ against the nested source tree, overridden by `MMABC_ROOT`.
 ```bash
 bash process_data.sh <bench_name> <ckpt_name> m92uw joint [expert_data_num]
 
-MIVERSE_SRC=/path/to/MiVerse/data/MiVerse WORKERS=8 \
-  bash process_data.sh MiVerse miverse-4b miverse joint
+MIVERSE_SRC=/path/to/MobileArena/data/MobileArena WORKERS=8 \
+  bash process_data.sh MobileArena miverse-4b mobile_arena joint
 ```
 
 The source layout is `<source>/<task>/miverse/data/episode_*.hdf5`;
 `EPISODE_SUBDIR` changes the directory between task and episode. Without
 `MIVERSE_SRC`, input comes from
-`../../../dataset/MiVerse/data/MiVerse`, relative to this policy directory.
+`../../../dataset/MobileArena/data/MobileArena`, relative to this policy directory.
 Episodes contain `state/`, `action/`, `vision/`, and an
 instruction. Camera names are `cam_head`, `cam_left_wrist`, and
-`cam_right_wrist`. The original MiVerse release stores standard RGB JPEGs
+`cam_right_wrist`. The original MobileArena release stores standard RGB JPEGs
 without XPL's `XPL-RGB1` marker. The converter adds that marker only to an
 in-memory copy, then uses shared `decode_image_bit`; marked standard JPEGs also
 work. This input convention does **not** cover legacy channel-reversed XPL
@@ -85,19 +94,19 @@ inside `MM_ABC/configs/`; review those changes before a later source commit.
 ```bash
 bash train.sh <bench_name> <ckpt_name> m92uw joint <seed> <gpu_id> [key=value ...]
 
-bash train.sh MiVerse miverse-4b miverse joint 0 all
-MODE=pretrain bash train.sh MiVerse miverse-pretrained miverse joint 0 0,1
+bash train.sh MobileArena miverse-4b mobile_arena joint 0 all
+MODE=pretrain bash train.sh MobileArena miverse-pretrained mobile_arena joint 0 0,1
 ```
 
 | Setting | Default recipe | `MODE=pretrain` |
 | --- | --- | --- |
-| Config | `configs/train/miverse.yaml` | `configs/train/miverse_pretrain.yaml` |
+| Config | `configs/train/mobile_arena.yaml` | `configs/train/mobile_arena_pretrain.yaml` |
 | Initialization | Qwen backbone and fresh action expert | Compatible MM-ABC weights |
 | Layout | 75-dimensional absolute commands | 80-dimensional canonical layout |
 | Flow objective | v-pred / v-loss | x-pred / v-loss |
 
 Both directories default to `MODE=scratch`; the `_pre` suffix is not a training
-mode selector. The MiVerse recipes predict 32 steps, execute 16, and use 10 Euler integration
+mode selector. The MobileArena recipes predict 32 steps, execute 16, and use 10 Euler integration
 steps. `TRAIN_CONFIG` selects a custom training file. Trailing overrides, such
 as `max_steps=20` or `model_overrides.flow.pred_type=x`, are passed to the trainer.
 Optional experiment tracking uses `WANDB_API_KEY` or `MMABC_WANDB_ENV`.
@@ -110,7 +119,7 @@ scripts require SSH access, shared paths, and suitable network settings; see the
 Runs are written to:
 
 ```text
-checkpoints/MiVerse-<ckpt_name>-<env_cfg_type>-joint-<seed>/
+checkpoints/MobileArena-<ckpt_name>-<env_cfg_type>-joint-<seed>/
 ├── milestones/step_*/       # Inference weights
 ├── resume/step_*/           # Training resume state
 └── run_meta/               # Model config, layout, statistics, key contract
@@ -126,14 +135,14 @@ bash eval.sh <bench_name> <task_name> <ckpt_name> m92uw joint <seed> \
   <policy_gpu_id> <env_gpu_id> <policy_environment> <client_environment>
 
 EVAL_ENV_TYPE=debug MOCK=true \
-  bash eval.sh MiVerse debug unused miverse joint 0 0 0 none none
+  bash eval.sh MobileArena debug unused mobile_arena joint 0 0 0 none none
 
 EVAL_ENV_TYPE=debug DEBUG_OBS_ENCODED=1 EVAL_BATCH=true \
-  bash eval.sh MiVerse debug /absolute/path/to/mmabc/run miverse joint 0 0 0 none none
+  bash eval.sh MobileArena debug /absolute/path/to/mmabc/run mobile_arena joint 0 0 0 none none
 ```
 
 The debug client supports synthetic observations and `REPLAY_HDF5` recordings
-with the same MiVerse JPEG convention as conversion. `SEND=raw_hdf5` adds the
+with the same MobileArena JPEG convention as conversion. `SEND=raw_hdf5` adds the
 marker in memory before transport without re-encoding the image.
 `MOCK=true` returns hold-state actions without loading weights; it checks the
 interface, not learned policy quality. Unset `MOCK` to evaluate a checkpoint.
@@ -141,7 +150,7 @@ For replay, `REPLAY_START`, `EVAL_EPISODE_NUM`, and `EPISODE_STEP_LIMIT` control
 the run. Encoded debug frames use the shared `encode_image_bit` helper.
 
 Normal evaluation uses the shared environment client. The client must implement
-the MiVerse state/action contract. `eval_batch` defaults to `true`. Returned chunks
+the MobileArena state/action contract. `eval_batch` defaults to `true`. Returned chunks
 contain singular action keys
 and pose quaternions ordered `[qw, qx, qy, qz]`, in the base frame.
 

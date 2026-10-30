@@ -10,10 +10,10 @@ port: null
 host: localhost
 
 # Identifiers + per-launch wiring (set via --overrides from the eval scripts).
-bench_name: MiVerse
+bench_name: MobileArena
 task_name: null
 ckpt_name: null
-env_cfg_type: miverse
+env_cfg_type: mobile_arena
 action_type: ee
 action_dim: 45
 checkpoint_file: null  # null loads the highest step in ckpt_dir

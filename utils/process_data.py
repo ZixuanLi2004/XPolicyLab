@@ -250,6 +250,7 @@ def unpack_robot_state(
     return result
 
 def get_robot_action_dim_info(env_cfg_type):
+    env_cfg_type = "mobile_arena" if env_cfg_type == "miverse" else env_cfg_type
     env_cfg = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg", f"{env_cfg_type}.yml"))
     robot_name = env_cfg['config']['robot']
     robot_action_dim_info = load_json(os.path.join(os.path.dirname(__file__), "../../env_cfg/robot", "_robot_info.json"))[robot_name]
@@ -257,6 +258,7 @@ def get_robot_action_dim_info(env_cfg_type):
     return robot_action_dim_info
 
 def get_batch_size(env_cfg_type):
+    env_cfg_type = "mobile_arena" if env_cfg_type == "miverse" else env_cfg_type
     env_cfg = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg", f"{env_cfg_type}.yml"))
     sim_cfg = env_cfg['config']['sim']
     sim_info = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg/sim", f"{sim_cfg}.yml"))
@@ -264,6 +266,7 @@ def get_batch_size(env_cfg_type):
     return sim_info['scene']['num_envs']
 
 def get_action_dim(env_cfg_type):
+    env_cfg_type = "mobile_arena" if env_cfg_type == "miverse" else env_cfg_type
     env_cfg = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg", f"{env_cfg_type}.yml"))
     robot_name = env_cfg['config']['robot']
     robot_action_dim_info = load_json(os.path.join(os.path.dirname(__file__), "../../env_cfg/robot", "_robot_info.json"))[robot_name]

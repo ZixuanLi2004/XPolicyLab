@@ -10,7 +10,7 @@ seed=${5:?}
 gpu_ids=${6:?}
 shift 6
 if [[ "${action_type}" != "ee" ]]; then
-    echo '[OpenWAM] MiVerse OpenWAM requires action_type=ee.' >&2
+    echo '[OpenWAM] MobileArena OpenWAM requires action_type=ee.' >&2
     exit 1
 fi
 if [[ $# -gt 0 && "$1" =~ ^[1-9][0-9]*$ ]]; then
@@ -23,4 +23,4 @@ fi
 POLICY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export OPENWAM_GPUS="${gpu_ids}"
 export OPENWAM_OUTPUT_PATH="${OPENWAM_OUTPUT_PATH:-${POLICY_DIR}/checkpoints/${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}-${seed}}"
-exec bash "${POLICY_DIR}/train_miverse_openwam_ee.sh" "project.seed=${seed}" "$@"
+exec bash "${POLICY_DIR}/train_mobile_arena_openwam_ee.sh" "project.seed=${seed}" "$@"

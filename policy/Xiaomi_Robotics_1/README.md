@@ -1,9 +1,18 @@
-# Xiaomi_Robotics_1 for MiVerse
+# Xiaomi_Robotics_1 for MobileArena
+
+MobileArena was previously named MiVerse. Use `--bench MobileArena` and the
+`mobile_arena` environment profile for new evaluations. Existing checkpoint
+run directories named `MiVerse-...-miverse-...` remain readable. Source modules, scripts and configuration filenames use
+`mobile_arena`.
+Persisted model normalization keys and published dataset subdirectories retain
+their original identifiers for checkpoint/data compatibility. Do not rename
+checkpoint contents.
+
 
 **Original code:** [Xiaomi-Robotics-1](https://github.com/XiaomiRobotics/Xiaomi-Robotics-1)
 
-This adapter vendors `xiaomi_robotics_1/xr1` and supports MiVerse HDF5 conversion,
-training, and batched WebSocket evaluation. It uses the source MiVerse
+This adapter vendors `xiaomi_robotics_1/xr1` and supports MobileArena HDF5 conversion,
+training, and batched WebSocket evaluation. It uses the source MobileArena
 `miverse_official_state` recipe: 60-dimensional state, 39 active action dimensions,
 30-step chunks, and M92UW base-frame end-effector actions (`action_type: ee`).
 Shared deployment conventions are described in the [root README](../../README.md).
@@ -23,7 +32,7 @@ see [INSTALLATION.md](INSTALLATION.md). No weights are copied by the merge.
 ## Data Processing
 
 This policy uses native XR1 JSON trajectories and RGB MP4s, not a LeRobot export.
-The converter consumes original MiVerse HDF5 `state`, `action`, and the three
+The converter consumes original MobileArena HDF5 `state`, `action`, and the three
 head/wrist cameras. It obtains training targets from `action/*`; it does not
 substitute next-frame state. Images are decoded through the shared
 `XPolicyLab.utils.process_data.decode_image_bit`, preserving both legacy and
@@ -31,13 +40,13 @@ marked RGB buffers.
 
 ```bash
 conda activate mibot
-MIVERSE_RAW_ROOT=/path/to/MiVerse/hdf5 \
+MIVERSE_RAW_ROOT=/path/to/MobileArena/hdf5 \
   bash process_data.sh --workers 16
 ```
 
 Default output: `data/miverse_native`; config:
-`xiaomi_robotics_1/xr1/configs/data/miverse_native.yaml`.
-`MIVERSE_OUTPUT_ROOT` selects another output directory. `process_miverse.sh` is an
+`xiaomi_robotics_1/xr1/configs/data/mobile_arena_native.yaml`.
+`MIVERSE_OUTPUT_ROOT` selects another output directory. `process_mobile_arena.sh` is an
 alias. `--max-episodes 2` limits a trial conversion; `--stats-only` recomputes
 statistics from HDF5 without rewriting videos. Always recompute stats for your
 training data; the included config retains the source recipe's statistics.
@@ -53,7 +62,7 @@ Run from the activated `mibot` environment:
 
 ```bash
 PRETRAINED_PATH=/path/to/pretrained/model_states.pt \
-  bash train.sh MiVerse all miverse ee 0 0,1,2,3
+  bash train.sh MobileArena all mobile_arena ee 0 0,1,2,3
 ```
 
 The first six arguments follow XPolicyLab's naming convention; further arguments
@@ -79,17 +88,17 @@ Artifacts are written under
 
 ```bash
 XR1_CKPT_DIR=/path/to/current_miverse_checkpoint \
-  bash eval.sh MiVerse place_kettle_on_tv_stand MiVerse miverse ee 0 0 1 mibot RoboDojo
+  bash eval.sh MobileArena place_kettle_on_tv_stand MobileArena mobile_arena ee 0 0 1 mibot RoboDojo
 ```
 
-Use an actual task name from the selected MiVerse client. The normal
+Use an actual task name from the selected MobileArena client. The normal
 `setup_eval_policy_server.sh` / `setup_eval_env_client.sh` interfaces also support
 external orchestration. Configure `model_dir` in `deploy.yml`, set
 `XR1_CKPT_DIR`, or provide `ckpt_name` as a checkpoint path. Otherwise shared
 checkpoint resolution finds `checkpoints/<bench>-<ckpt>-<env>-<action>-<seed>`.
 `vlm_processor_path` may point to a local Qwen3-VL processor cache.
 
-Runtime requires all 11 MiVerse state fields, including `left_base_ee_pose` and
+Runtime requires all 11 MobileArena state fields, including `left_base_ee_pose` and
 `right_base_ee_pose`; world-frame EE poses are not substitutes. Each predicted
 step is restored relative to the same observed state. Only `vx, vy, wz` change;
 the other three velocity components retain the observation values. Old

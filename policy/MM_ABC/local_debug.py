@@ -1,7 +1,7 @@
 """In-process debug for the MM_ABC adapter: no server, no port.
 
 Drives ``Model`` through reset / update_obs / get_action (and the batch path)
-with synthetic MiVerse observations and validates every returned action.
+with synthetic MobileArena observations and validates every returned action.
 
     PYTHONPATH=<workspace>:<workspace>/XPolicyLab \\
       python -m XPolicyLab.policy.MM_ABC.local_debug                     # mock

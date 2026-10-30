@@ -44,8 +44,9 @@ fi
 if [[ -n "${MOPA_BASE_VLM:-}" ]]; then
     overrides+=("base_vlm=${MOPA_BASE_VLM}")
 fi
-if [[ -n "${MIVERSE_ACTION_CONTRACT:-}" ]]; then
-    overrides+=("miverse_action_contract=${MIVERSE_ACTION_CONTRACT}")
+mobile_arena_contract="${MOBILE_ARENA_ACTION_CONTRACT:-${MIVERSE_ACTION_CONTRACT:-}}"
+if [[ -n "${mobile_arena_contract}" ]]; then
+    overrides+=("mobile_arena_action_contract=${mobile_arena_contract}")
 fi
 if [[ -n "${MOBILE_ACTION_CONTRACT:-}" ]]; then
     overrides+=("mobile_action_contract=${MOBILE_ACTION_CONTRACT}")

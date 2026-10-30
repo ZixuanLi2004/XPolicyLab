@@ -79,7 +79,7 @@ def _register_builtins():
     from openwam.dataloader.interndata_a1 import InternDataA1Dataset
     from openwam.dataloader.libero import LiberoDataset
     from openwam.dataloader.mixture import MixtureDataset
-    from openwam.dataloader.miverse_ee import MiVerseEEDataset
+    from openwam.dataloader.mobile_arena_ee import MobileArenaEEDataset
     from openwam.dataloader.muka_franka import MukaFrankaDataset
     from openwam.dataloader.oxe_droid import OxeDroidDataset
     from openwam.dataloader.robocasa365 import MultiTaskRoboCasa365Dataset
@@ -93,7 +93,8 @@ def _register_builtins():
     register_dataset("robodojo")(MultiTaskRoboDojoDataset)
     register_dataset("agibotworld")(MultiAgiBotWorldDataset)
     register_dataset("mixture")(MixtureDataset)
-    register_dataset("miverse_ee")(MiVerseEEDataset)
+    register_dataset("mobile_arena_ee")(MobileArenaEEDataset)
+    register_dataset("miverse_ee")(MobileArenaEEDataset)  # Saved checkpoint configs.
     register_dataset("robocasa_gr1")(MultiRoboCasaGR1Dataset)
     register_dataset("robocoin")(MultiRobotCOINDataset)
     register_dataset("ebench")(EBenchDataset)

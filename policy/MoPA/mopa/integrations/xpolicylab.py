@@ -31,7 +31,8 @@ class ModelAdapter:
         if self.input_color_order not in {"rgb", "bgr"}:
             raise ValueError("input_color_order must be 'rgb' or 'bgr'")
         self.mobile_action_contract = str(
-            model_cfg.get("mobile_action_contract") or model_cfg.get("miverse_action_contract") or "mopa75"
+            model_cfg.get("mobile_action_contract") or model_cfg.get("mobile_arena_action_contract")
+            or model_cfg.get("miverse_action_contract") or "mopa75"
         ).lower()
         if self.mobile_action_contract not in {"mopa75", "extended90"}:
             raise ValueError("mobile_action_contract must be 'mopa75' or 'extended90'")
@@ -273,11 +274,9 @@ def process_data_main(argv=None, *, policy_dir, xpl_root):
     args = parser.parse_args(argv)
     if args.source:
         source = args.source
-    elif args.bench_name.lower() in {"miverse", "miverse_depth"}:
-        source = Path(os.environ.get(
-            "MIVERSE_DATASET",
-            str(Path(xpl_root).parent / "dataset" / "MiVerse" / "data" / "MiVerse"),
-        ))
+    elif args.bench_name.lower() in {"mobilearena", "mobile_arena", "miverse", "miverse_depth"}:
+        from XPolicyLab.utils.benchmark_compat import mobile_arena_raw_root
+        source = mobile_arena_raw_root(Path(xpl_root).parent)
     else:
         source = Path(xpl_root).parent / "data" / args.bench_name / args.ckpt_name / args.env_cfg_type / "data"
     output = args.output or Path(policy_dir) / "data" / build_run_dir_name(vars(args), include_seed=False)

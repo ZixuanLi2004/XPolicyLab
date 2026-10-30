@@ -1,6 +1,6 @@
-"""MiVerse M92UW EE45 adapter for the 80-D unified OpenWAM model.
+"""MobileArena M92UW EE45 adapter for the 80-D unified OpenWAM model.
 
-Three RGB views and base-frame end-effector poses follow the MiVerse converter
+Three RGB views and base-frame end-effector poses follow the MobileArena converter
 and reader. Batched inference makes one generate_batch call for active envs.
 """
 
@@ -15,7 +15,7 @@ import numpy as np
 
 from XPolicyLab.model_template import ModelTemplate
 from XPolicyLab.utils.checkpoint_resolver import resolve_checkpoint_root
-from XPolicyLab.policy.OpenWAM import miverse_ee_adapter
+from XPolicyLab.policy.OpenWAM import mobile_arena_ee_adapter
 
 POLICY_DIR = Path(__file__).resolve().parent
 # Vendored OpenWAM source tree (weights excluded).
@@ -122,7 +122,7 @@ def _to_pil(value: Any, ctx: str):
 class Model(ModelTemplate):
     def __init__(self, model_cfg):
         self.model_cfg = dict(model_cfg)
-        self.raw_action_dim = miverse_ee_adapter.RAW_DIM
+        self.raw_action_dim = mobile_arena_ee_adapter.RAW_DIM
         action_type = self.model_cfg.get("action_type") or "ee"
         if action_type != "ee":
             raise ValueError(f"MiVerse OpenWAM requires action_type='ee', got {action_type!r}")
@@ -153,8 +153,8 @@ class Model(ModelTemplate):
         from omegaconf import OmegaConf
         saved_cfg = OmegaConf.load(Path(ckpt_dir) / "config.yaml")
         saved_type = OmegaConf.select(saved_cfg, "dataloader.type")
-        if saved_type != "miverse_ee":
-            raise ValueError(f"MiVerse OpenWAM requires dataloader=miverse_ee, got {saved_type!r}")
+        if saved_type not in ("mobile_arena_ee", "miverse_ee"):
+            raise ValueError(f"MobileArena OpenWAM requires dataloader=mobile_arena_ee, got {saved_type!r}")
         if OmegaConf.select(saved_cfg, "model.architecture.action_dim") != 80:
             raise ValueError("MiVerse EE checkpoint must use the original 80D OpenWAM model")
         if OmegaConf.select(saved_cfg, "dataloader.action_mode") != "miverse_ee":
@@ -213,12 +213,12 @@ class Model(ModelTemplate):
             if not isinstance(camera, Mapping) or "color" not in camera:
                 raise KeyError(f"missing required camera vision/{camera_name}/color")
             images[payload_name] = _to_pil(camera["color"], ctx=f"vision/{camera_name}/color")
-            images[payload_name] = miverse_ee_adapter.prepare_camera(images[payload_name], camera_name)
+            images[payload_name] = mobile_arena_ee_adapter.prepare_camera(images[payload_name], camera_name)
 
         state = obs.get("state")
         if not isinstance(state, Mapping):
             raise ValueError("obs['state'] must be a mapping")
-        model_state = miverse_ee_adapter.pack_state(obs)
+        model_state = mobile_arena_ee_adapter.pack_state(obs)
 
         instruction = _decode_instruction(
             obs.get("instruction", obs.get("instructions", obs.get("task_instruction"))), self.default_instruction
@@ -245,7 +245,7 @@ class Model(ModelTemplate):
         """Dummy-mode chunk for checking transport without loading weights."""
         steps = self.replan_steps or 8
         model_state = np.asarray(payload["state"], dtype=np.float64)
-        return miverse_ee_adapter.unpack_actions(np.tile(model_state, (steps, 1)))
+        return mobile_arena_ee_adapter.unpack_actions(np.tile(model_state, (steps, 1)))
 
     # ------------------------------------------------------------------
     # XPolicyLab protocol
@@ -309,7 +309,7 @@ class Model(ModelTemplate):
         n_exec = actions.shape[1]
         if self.replan_steps is not None:
             n_exec = min(self.replan_steps, n_exec)
-        return [miverse_ee_adapter.unpack_actions(actions[b, :n_exec]) for b in range(actions.shape[0])]
+        return [mobile_arena_ee_adapter.unpack_actions(actions[b, :n_exec]) for b in range(actions.shape[0])]
 
     def reset(self):
         self._batch = {}

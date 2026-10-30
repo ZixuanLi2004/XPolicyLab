@@ -33,9 +33,9 @@ export DIFFSYNTH_MODEL_BASE_PATH="${FASTWAM_DIR}/checkpoints"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 export PYTHONPATH="${ROOT_DIR}/..:${FASTWAM_DIR}:${FASTWAM_DIR}/src:${PYTHONPATH:-}"
 
-if [[ "${FASTWAM_MIVERSE:-true}" == "true" ]]; then
+if [[ "${FASTWAM_MOBILE_ARENA:-${FASTWAM_MIVERSE:-true}}" == "true" ]]; then
     action_dim=45
-    task_name="miverse_uncond_3cam_384_1e-4"
+    task_name="mobile_arena_uncond_3cam_384_1e-4"
 else
     action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${ROOT_DIR}" "${env_cfg_type}")
     task_name="robotwin_uncond_3cam_384_1e-4"
@@ -43,13 +43,13 @@ fi
 # Default dataset_id is the 4-tuple data_key. Set FASTWAM_DATASET_ID to point
 # at a differently named dataset without changing the train.sh argument shape.
 data_key="${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}"
-if [[ "${FASTWAM_MIVERSE:-true}" == "true" ]]; then
+if [[ "${FASTWAM_MOBILE_ARENA:-${FASTWAM_MIVERSE:-true}}" == "true" ]]; then
     dataset_id="${FASTWAM_DATASET_ID:-miverse_data}"
 else
     dataset_id="${FASTWAM_DATASET_ID:-${data_key}}"
 fi
-if [[ "${FASTWAM_MIVERSE:-true}" == "true" ]]; then
-    # MiVerse is a shared LeRobot v3.0 dataset used by Pi0.5, GalaxeaVLA,
+if [[ "${FASTWAM_MOBILE_ARENA:-${FASTWAM_MIVERSE:-true}}" == "true" ]]; then
+    # MobileArena is a shared LeRobot v3.0 dataset used by Pi0.5, GalaxeaVLA,
     # and InternVLA. FastWAM keeps its own processor but reads this same repo.
     dataset_dir="${FASTWAM_DATASET_DIR:-${POLICY_DIR}/../Pi_05/data/${dataset_id}}"
     stats_path="${FASTWAM_STATS_PATH:-${POLICY_DIR}/data/${dataset_id}/dataset_stats.json}"

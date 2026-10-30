@@ -1,5 +1,14 @@
 # MoPA
 
+MobileArena was previously named MiVerse. Use `--bench MobileArena` and the
+`mobile_arena` environment profile for new evaluations. Existing checkpoint
+run directories named `MiVerse-...-miverse-...` remain readable. Source modules, scripts and configuration filenames use
+`mobile_arena`.
+Persisted model normalization keys and published dataset subdirectories retain
+their original identifiers for checkpoint/data compatibility. Do not rename
+checkpoint contents.
+
+
 **Contributor:** ZHUShaolong | **Paper:** [MoPA: Coordinated Mobile Manipulation via Subsystem-Specific Perception Alignment](https://mopa-policy.github.io/) | **arXiv:** [2609.12081](https://arxiv.org/abs/2609.12081) | **Original code:** [project page](https://mopa-policy.github.io/)
 
 This adapter provides data conversion, training and inference with Qwen3-VL,
@@ -33,20 +42,20 @@ they do not use a different editable installation from another checkout.
 ```bash
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> joint [expert_data_num] [options]
 
-export MIVERSE_DATASET=/path/to/MiVerse/data/MiVerse
-bash process_data.sh MiVerse mopa miverse joint
+export MIVERSE_DATASET=/path/to/MobileArena/data/MobileArena
+bash process_data.sh MobileArena mopa mobile_arena joint
 ```
 
 Only `joint` actions are supported. For generic robots, dimensions come from
 XPolicyLab's shared robot helper. The default input is
-`<workspace>/data/<bench_name>/<ckpt_name>/<env_cfg_type>/data`. For `MiVerse` or
+`<workspace>/data/<bench_name>/<ckpt_name>/<env_cfg_type>/data`. For `MobileArena` or
 `MiVerse_depth`, it is instead `MIVERSE_DATASET`, falling back to
-`<workspace>/dataset/MiVerse/data/MiVerse`. `--source` or `SOURCE_DATA` takes
+`<workspace>/dataset/MobileArena/data/MobileArena`. `--source` or `SOURCE_DATA` takes
 priority over either default. The default output is
 `data/<bench_name>-<ckpt_name>-<env_cfg_type>-joint/`; `--output` overrides it.
 Existing output directories are rejected.
 
-For `miverse`, `miverse_m92uw`, `m92uw`, `mobile` or `mobile_m92uw`, the policy-local
+For `mobile_arena`, `miverse_m92uw`, `m92uw`, `mobile` or `mobile_m92uw`, the policy-local
 [mobile layout](mopa/data/mobile.py) packs 69 raw values into 75 model values using
 position plus rotation-6D for poses. Its manipulation slice is `[0,56)` and its
 mobility slice is `[56,75)`. These pose, torso and base fields extend the shared
@@ -56,7 +65,7 @@ those paths. Generic conversion writes decoded RGB NPZ episodes and quantile
 statistics. Neither output uses the LeRobot format.
 
 All stored image buffers are decoded with XPolicyLab's `decode_image_bit`.
-MiVerse's original unmarked standard JPEGs receive the shared RGB marker in
+MobileArena's original unmarked standard JPEGs receive the shared RGB marker in
 memory before decoding; source HDF5 files are unchanged.
 The generic robot conversion retains shared legacy/marked RGB decoding. Custom data producers must
 use `encode_image_bit` when writing images. Default cameras are
@@ -71,7 +80,7 @@ must contain a nonempty scalar `instruction` dataset.
 bash train.sh <bench_name> <ckpt_name> <env_cfg_type> joint <seed> <gpu_id> [options]
 
 export MOPA_BASE_VLM=/path/to/Qwen3-VL-4B-Instruct
-bash train.sh MiVerse mopa miverse joint 0 0
+bash train.sh MobileArena mopa mobile_arena joint 0 0
 ```
 
 Use a comma-separated GPU list, such as `0,1`, or `all` for distributed training
@@ -95,7 +104,7 @@ bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> joint <seed> \
 
 export MOPA_CHECKPOINT_PATH=/path/to/existing/mopa/checkpoint
 export MOPA_BASE_VLM=/path/to/Qwen3-VL-4B-Instruct
-EVAL_ENV_TYPE=sim bash eval.sh MiVerse "$TASK_NAME" mopa miverse joint 0 \
+EVAL_ENV_TYPE=sim bash eval.sh MobileArena "$TASK_NAME" mopa mobile_arena joint 0 \
   0 0 mopa "$EVAL_ENV"
 ```
 
@@ -104,7 +113,7 @@ The standard launcher uses the workspace environment client. Set
 server image decoding where supported. The server supplies RGB arrays to the
 model. Batched observations/actions are associated using `env_idx`.
 Batch evaluation is enabled by default. Existing checkpoints
-whose saved environment is `m92uw` can run with `miverse`; only the explicit
+whose saved environment is `m92uw` can run with `mobile_arena`; only the explicit
 75-D mobile aliases above are interchangeable. Action type, dimensions and
 robot metadata are still checked. Set `MOPA_CHECKPOINT_PATH` to an existing
 checkpoint directory or its `model.pt`; weights
@@ -144,7 +153,7 @@ interpreters; use `CONDA_ENVS_PATH` for environments in other locations.
 `MOPA_ACTION_KEY_STYLE` and `MIVERSE_ACTION_CONTRACT` override the corresponding
 deployment keys in the server. The existing `MOBILE_ACTION_CONTRACT` and
 `mobile_action_contract` key remain compatible and take priority when supplied.
-Use `mopa75` for MiVerse; no additional action format is introduced by this
+Use `mopa75` for MobileArena; no additional action format is introduced by this
 launcher. Instructions are read from `instruction`, then `instructions`, then the
 configured task name; for multiple variants, the first is used.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Single-node launch: all GPUs on this host.
 #
-#   bash scripts/train_single_node.sh configs/train/miverse_smoke.yaml [overrides...]
+#   bash scripts/train_single_node.sh configs/train/mobile_arena_smoke.yaml [overrides...]
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

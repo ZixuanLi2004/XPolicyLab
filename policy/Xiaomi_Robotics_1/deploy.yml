@@ -2,10 +2,10 @@ policy_name: Xiaomi_Robotics_1
 protocol: ws
 host: localhost
 port: null
-bench_name: MiVerse
+bench_name: MobileArena
 task_name: null
 ckpt_name: null
-env_cfg_type: miverse
+env_cfg_type: mobile_arena
 seed: 0
 action_type: ee
 eval_batch: true
