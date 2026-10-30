@@ -18,7 +18,7 @@ def _column_matrix(win, column: str, dim: int) -> np.ndarray:
     rows = [np.asarray(x, dtype=np.float32) for x in win[column].tolist()]
     out = np.stack(rows, axis=0).astype(np.float32, copy=False)
     if out.ndim != 2 or out.shape[-1] != dim:
-        raise ValueError(f"MiVerse {column} must be (T,{dim}), got {out.shape}")
+        raise ValueError(f"MobileArena {column} must be (T,{dim}), got {out.shape}")
     return out
 
 
@@ -30,7 +30,7 @@ class MobileArenaEEDataset(LeRobotV3Reader):
     STATS_DIM = 45
     DEFAULT_NORMALIZE_MODE = "min-max"
     STATS_FILENAME = None
-    DEPLOY_ACTION_MODE = "miverse_ee"
+    DEPLOY_ACTION_MODE = "mobile_arena_ee"
     HEAD_CAMERA = "observation.images.cam_head"
     LEFT_WRIST_CAMERA = "observation.images.cam_left_wrist"
     RIGHT_WRIST_CAMERA = "observation.images.cam_right_wrist"

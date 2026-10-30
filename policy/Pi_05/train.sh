@@ -19,21 +19,21 @@ ckpt_setting="${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}-${seed}"
 ckpt_dir="${POLICY_DIR}/checkpoints/${ckpt_setting}"
 train_config_name="${OPENPI_TRAIN_CONFIG_NAME:-}"
 if [[ -z "${train_config_name}" ]]; then
-  if [[ "${bench_name}" == "MobileArena" || "${bench_name}" == "MiVerse" ]]; then
-    train_config_name="pi05_miverse_full"
+  if [[ "${bench_name}" == "MobileArena" ]]; then
+    train_config_name="pi05_mobile_arena_full"
   else
     train_config_name="pi05_base_aloha_full_sim_arx-x5_seed_0"
   fi
 fi
-if [[ "${train_config_name}" == "pi05_miverse_full" ]]; then
-  lerobot_repo_id="${OPENPI_LEROBOT_REPO_ID:-miverse_data}"
+if [[ "${train_config_name}" == "pi05_mobile_arena_full" ]]; then
+  lerobot_repo_id="${OPENPI_LEROBOT_REPO_ID:-mobile_arena_data}"
 else
   lerobot_repo_id="${OPENPI_LEROBOT_REPO_ID:-${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}}"
 fi
 gpu_count=$(awk -F',' '{print NF}' <<<"${gpu_id}")
 fsdp_devices="${OPENPI_FSDP_DEVICES:-$(( gpu_count < 2 ? 1 : 2 ))}"
 default_batch_size=1
-if [[ "${train_config_name}" == "pi05_miverse_full" ]]; then
+if [[ "${train_config_name}" == "pi05_mobile_arena_full" ]]; then
   # Keep the launch script aligned with the MobileArena config (global batch size 128).
   default_batch_size=128
 fi

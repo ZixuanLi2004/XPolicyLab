@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Usage: bash process_data.sh <MobileArena HDF5 root> [converted dataset directory] [converter flags...]
 POLICY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source_dir=${1:?Usage: bash process_data.sh <MiVerse HDF5 root> [converted dataset directory] [converter flags...]}
-dataset_dir=${2:-${OPENWAM_DATASET_DIR:-${POLICY_DIR}/data/miverse_ee}}
+source_dir=${1:?Usage: bash process_data.sh <MobileArena HDF5 root> [converted dataset directory] [converter flags...]}
+dataset_dir=${2:-${OPENWAM_DATASET_DIR:-${POLICY_DIR}/data/mobile_arena_ee}}
 shift
 if [[ $# -gt 0 ]]; then shift; fi
 exec "${OPENWAM_PYTHON:-python}" "${POLICY_DIR}/convert_mobile_arena_openwam_ee.py" \

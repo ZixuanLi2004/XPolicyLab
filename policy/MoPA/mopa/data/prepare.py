@@ -241,7 +241,7 @@ def prepare_mobile_dataset(source_dir: str | Path, metadata: dict,
     }
     result = dict(metadata)
     result.update(format_version=DATASET_FORMAT, action_type="joint", action_dim=dim,
-                  state_dim=dim, storage_format="miverse_hdf5", episodes=records,
+                  state_dim=dim, storage_format="mobile_arena_hdf5", episodes=records,
                   num_frames=sum(record["length"] for record in records),
                   statistics_samples=statistics_samples)
     (output_dir / "metadata.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")

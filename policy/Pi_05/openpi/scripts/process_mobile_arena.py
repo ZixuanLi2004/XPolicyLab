@@ -20,7 +20,6 @@ for import_root in (XPL_ROOT.parent, OPENPI_SRC):
         sys.path.insert(0, str(import_root))
 from openpi import mobile_arena_layout as mobile_arena
 from XPolicyLab.utils.process_data import decode_image_bit
-from XPolicyLab.utils.benchmark_compat import mobile_arena_raw_root, mobile_arena_option
 
 def _decode_instruction(value) -> str:
     if isinstance(value, bytes):
@@ -56,8 +55,8 @@ def _episode_data(path: Path):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", default=str(mobile_arena_raw_root()))
-    parser.add_argument("--repo-id", default=mobile_arena_option("REPO_ID", "miverse_data"))
+    parser.add_argument("--source-root", default=os.environ.get("MOBILE_ARENA_RAW_ROOT", str(XPL_ROOT.parent / "data" / "MobileArena")))
+    parser.add_argument("--repo-id", default=os.environ.get("MOBILE_ARENA_REPO_ID", "mobile_arena_data"))
     parser.add_argument("--max-episodes", type=int, default=None)
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing output dataset")
     args = parser.parse_args()
@@ -74,7 +73,7 @@ def main() -> None:
     if args.max_episodes is not None:
         episode_files = episode_files[: args.max_episodes]
     if not episode_files:
-        raise FileNotFoundError(f"No MiVerse HDF5 files found under {source_root}")
+        raise FileNotFoundError(f"No MobileArena HDF5 files found under {source_root}")
 
     output_path = home / args.repo_id
     if output_path.exists():

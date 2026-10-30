@@ -125,10 +125,10 @@ class Model(ModelTemplate):
         self.raw_action_dim = mobile_arena_ee_adapter.RAW_DIM
         action_type = self.model_cfg.get("action_type") or "ee"
         if action_type != "ee":
-            raise ValueError(f"MiVerse OpenWAM requires action_type='ee', got {action_type!r}")
+            raise ValueError(f"MobileArena OpenWAM requires action_type='ee', got {action_type!r}")
         configured_dim = int(self.model_cfg.get("action_dim") or self.raw_action_dim)
         if configured_dim != self.raw_action_dim:
-            raise ValueError(f"MiVerse OpenWAM expects action_dim=45, got {configured_dim}")
+            raise ValueError(f"MobileArena OpenWAM expects action_dim=45, got {configured_dim}")
         self.openwam_root = _resolve_openwam_root(self.model_cfg.get("openwam_root"))
 
         self.default_instruction = str(self.model_cfg.get("default_instruction") or "follow the instruction")
@@ -153,15 +153,15 @@ class Model(ModelTemplate):
         from omegaconf import OmegaConf
         saved_cfg = OmegaConf.load(Path(ckpt_dir) / "config.yaml")
         saved_type = OmegaConf.select(saved_cfg, "dataloader.type")
-        if saved_type not in ("mobile_arena_ee", "miverse_ee"):
+        if saved_type != "mobile_arena_ee":
             raise ValueError(f"MobileArena OpenWAM requires dataloader=mobile_arena_ee, got {saved_type!r}")
         if OmegaConf.select(saved_cfg, "model.architecture.action_dim") != 80:
-            raise ValueError("MiVerse EE checkpoint must use the original 80D OpenWAM model")
-        if OmegaConf.select(saved_cfg, "dataloader.action_mode") != "miverse_ee":
-            raise ValueError("MiVerse EE checkpoint requires dataloader.action_mode=miverse_ee")
+            raise ValueError("MobileArena EE checkpoint must use the original 80D OpenWAM model")
+        if OmegaConf.select(saved_cfg, "dataloader.action_mode") != "mobile_arena_ee":
+            raise ValueError("MobileArena EE checkpoint requires dataloader.action_mode=mobile_arena_ee")
         stats = np.load(Path(ckpt_dir) / "normalization_stats.npy", allow_pickle=True).item()
-        if "miverse_ee_state" not in stats:
-            raise ValueError("MiVerse EE checkpoint is missing its separate state normalization statistics")
+        if "mobile_arena_ee_state" not in stats:
+            raise ValueError("MobileArena EE checkpoint is missing its separate state normalization statistics")
 
         # OpenWAM's own deploy defaults; the correctness-critical keys are
         # force-overridden below, so no separate pinned eval yaml is needed.

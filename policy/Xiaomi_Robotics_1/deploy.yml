@@ -11,7 +11,7 @@ action_type: ee
 eval_batch: true
 eval_env: sim
 
-# Current MiVerse official-state checkpoint: config.py + last.ckpt/.
+# Current MobileArena official-state checkpoint: config.py + last.ckpt/.
 # Set model_dir here, provide ckpt_name as a path, or set XR1_CKPT_DIR.
 model_dir: null
 action_length: 30

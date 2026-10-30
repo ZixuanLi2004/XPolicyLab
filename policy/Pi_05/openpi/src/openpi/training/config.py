@@ -747,11 +747,11 @@ _CONFIGS = [
     # Full-parameter training; the 45D projection layers are randomly initialized because
     # the released pi05_base checkpoint has 32D action/state projections.
     TrainConfig(
-        name="pi05_miverse_full",
+        name="pi05_mobile_arena_full",
         model=pi0_config.Pi0Config(pi05=True, action_dim=45, action_horizon=50, max_token_len=256),
         data=LeRobotWujiDataConfig(
-            repo_id="miverse_data",
-            assets=AssetsConfig(asset_id="miverse_data"),
+            repo_id="mobile_arena_data",
+            assets=AssetsConfig(asset_id="mobile_arena_data"),
             base_config=DataConfig(prompt_from_task=True),
             base_image_key="observation.images.cam_head",
             extra_delta_transform=False,

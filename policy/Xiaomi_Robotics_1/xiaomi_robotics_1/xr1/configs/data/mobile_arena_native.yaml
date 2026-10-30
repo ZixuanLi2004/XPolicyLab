@@ -7,11 +7,11 @@ data:
     num_workers: 16
     train_datasets:
       format: json
-      miverse_layout: true
+      mobile_arena_layout: true
       batch_size: 8
       action_length: 30
       paths:
-      - ${oc.env:MIVERSE_OUTPUT_ROOT,../../data/miverse_native}/data
+      - ${oc.env:MOBILE_ARENA_OUTPUT_ROOT,../../data/mobile_arena_native}/data
       active_action_ranges:
       - - 0
         - 6

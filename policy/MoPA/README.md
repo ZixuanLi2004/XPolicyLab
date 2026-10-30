@@ -1,14 +1,5 @@
 # MoPA
 
-MobileArena was previously named MiVerse. Use `--bench MobileArena` and the
-`mobile_arena` environment profile for new evaluations. Existing checkpoint
-run directories named `MiVerse-...-miverse-...` remain readable. Source modules, scripts and configuration filenames use
-`mobile_arena`.
-Persisted model normalization keys and published dataset subdirectories retain
-their original identifiers for checkpoint/data compatibility. Do not rename
-checkpoint contents.
-
-
 **Contributor:** ZHUShaolong | **Paper:** [MoPA: Coordinated Mobile Manipulation via Subsystem-Specific Perception Alignment](https://mopa-policy.github.io/) | **arXiv:** [2609.12081](https://arxiv.org/abs/2609.12081) | **Original code:** [project page](https://mopa-policy.github.io/)
 
 This adapter provides data conversion, training and inference with Qwen3-VL,
@@ -42,20 +33,20 @@ they do not use a different editable installation from another checkout.
 ```bash
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> joint [expert_data_num] [options]
 
-export MIVERSE_DATASET=/path/to/MobileArena/data/MobileArena
+export MOBILE_ARENA_DATASET=/path/to/MobileArena/data/MobileArena
 bash process_data.sh MobileArena mopa mobile_arena joint
 ```
 
 Only `joint` actions are supported. For generic robots, dimensions come from
 XPolicyLab's shared robot helper. The default input is
 `<workspace>/data/<bench_name>/<ckpt_name>/<env_cfg_type>/data`. For `MobileArena` or
-`MiVerse_depth`, it is instead `MIVERSE_DATASET`, falling back to
+`MobileArena_depth`, it is instead `MOBILE_ARENA_DATASET`, falling back to
 `<workspace>/dataset/MobileArena/data/MobileArena`. `--source` or `SOURCE_DATA` takes
 priority over either default. The default output is
 `data/<bench_name>-<ckpt_name>-<env_cfg_type>-joint/`; `--output` overrides it.
 Existing output directories are rejected.
 
-For `mobile_arena`, `miverse_m92uw`, `m92uw`, `mobile` or `mobile_m92uw`, the policy-local
+For `mobile_arena`, `mobile_arena_m92uw`, `m92uw`, `mobile` or `mobile_m92uw`, the policy-local
 [mobile layout](mopa/data/mobile.py) packs 69 raw values into 75 model values using
 position plus rotation-6D for poses. Its manipulation slice is `[0,56)` and its
 mobility slice is `[56,75)`. These pose, torso and base fields extend the shared
@@ -146,11 +137,11 @@ interpreters; use `CONDA_ENVS_PATH` for environments in other locations.
 | `execute_steps` | null | Execute up to 16 actions by default, capped by the saved horizon; explicit values must be within that horizon |
 | `action_key_style` | singular | Mobile action keys: `singular` or `plural` |
 | `input_color_order` | rgb | Use `bgr` only to adapt RGB observations to a checkpoint trained on BGR images |
-| `miverse_action_contract` | mopa75 | Native 11-field output or existing `extended90` with 14 fields |
+| `mobile_arena_action_contract` | mopa75 | Native 11-field output or existing `extended90` with 14 fields |
 | `request_timeout_s` | 120 | RPC timeout in seconds |
 
 `MOPA_CHECKPOINT_PATH`, `MOPA_BASE_VLM`, `MOPA_EXECUTE_STEPS`,
-`MOPA_ACTION_KEY_STYLE` and `MIVERSE_ACTION_CONTRACT` override the corresponding
+`MOPA_ACTION_KEY_STYLE` and `MOBILE_ARENA_ACTION_CONTRACT` override the corresponding
 deployment keys in the server. The existing `MOBILE_ACTION_CONTRACT` and
 `mobile_action_contract` key remain compatible and take priority when supplied.
 Use `mopa75` for MobileArena; no additional action format is introduced by this
@@ -161,8 +152,8 @@ configured task name; for multiple variants, the first is used.
 
 The checkpoint format is `xpl-mopa-query-dmot-v2`. Configuration records the layout,
 query counts, action slices and camera order, all of which must match inference.
-New datasets and checkpoints use the layout tag `miverse_m92uw` and lazy manifests
-use `miverse_hdf5`. Older layout
+New datasets and checkpoints use the layout tag `mobile_arena_m92uw` and lazy manifests
+use `mobile_arena_hdf5`. Older layout
 labels are accepted when their saved metadata has the same explicit 75-D model,
 69-D raw and joint-dimension signature. The policy-local ignore file excludes weights,
 datasets, generated outputs, logs and caches from version control.

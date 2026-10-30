@@ -307,7 +307,7 @@ class Model(ModelTemplate):
 
         current75 = runtime_state_to_mobile_arena75(state, allow_missing=False)
         state_np = state75_to_xiaomi60(current75).reshape(1, 60).astype(np.float32)
-        current_state = {"miverse75": current75}
+        current_state = {"mobile_arena75": current75}
 
         instruction = self._get_instruction(obs)
 
@@ -414,7 +414,7 @@ class Model(ModelTemplate):
         """Restore every predicted step relative to the same current observation."""
         from mibot.utils.mobile_arena_adapter import xiaomi60_action_to_mobile_arena75, unpack_mobile_arena75
 
-        current75 = np.asarray(current_state["miverse75"], dtype=np.float64)
+        current75 = np.asarray(current_state["mobile_arena75"], dtype=np.float64)
         return [
             unpack_mobile_arena75(xiaomi60_action_to_mobile_arena75(action, current75))
             for action in raw_actions

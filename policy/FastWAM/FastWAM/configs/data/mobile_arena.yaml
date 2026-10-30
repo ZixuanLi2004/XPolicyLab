@@ -1,7 +1,7 @@
 train:
   _target_: fastwam.datasets.lerobot.robot_video_dataset.RobotVideoDataset
   dataset_dirs:
-    - ../../Pi_05/data/miverse_data
+    - ../../Pi_05/data/mobile_arena_data
   shape_meta:
     images:
       - key: cam_head
@@ -28,7 +28,7 @@ train:
   camera_key: null
   val_set_proportion: 0.01
   is_training_set: true
-  pretrained_norm_stats: ../data/miverse_data/dataset_stats.json
+  pretrained_norm_stats: ../data/mobile_arena_data/dataset_stats.json
   skip_padding_as_possible: false
   concat_multi_camera: "robotwin"
   processor:
@@ -64,7 +64,7 @@ train:
 val:
   _target_: fastwam.datasets.lerobot.robot_video_dataset.RobotVideoDataset
   dataset_dirs:
-    - ../../Pi_05/data/miverse_data/
+    - ../../Pi_05/data/mobile_arena_data/
   shape_meta:
     images:
       - key: cam_head
@@ -91,7 +91,7 @@ val:
   camera_key: null
   val_set_proportion: 0.01
   is_training_set: false
-  pretrained_norm_stats: ../data/miverse_data/dataset_stats.json
+  pretrained_norm_stats: ../data/mobile_arena_data/dataset_stats.json
   skip_padding_as_possible: false
   concat_multi_camera: "robotwin"
   processor:

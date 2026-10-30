@@ -28,7 +28,6 @@ XPL_ROOT = Path(__file__).resolve().parents[6]
 if str(XPL_ROOT) not in sys.path:
     sys.path.insert(0, str(XPL_ROOT))
 from XPolicyLab.utils.process_data import decode_image_bit  # noqa: E402
-from XPolicyLab.utils.benchmark_compat import mobile_arena_raw_root
 from mibot.utils.mobile_arena_adapter import (  # noqa: E402
     ACTION_RANGES,
     raw_fields_to_mobile_arena75,
@@ -165,8 +164,8 @@ def process_one(job, stats_only=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source-root", type=Path, default=mobile_arena_raw_root())
-    ap.add_argument("--output-root", type=Path, default=XR1.parents[1] / "data" / "miverse_native")
+    ap.add_argument("--source-root", type=Path, default=Path(os.environ.get("MOBILE_ARENA_RAW_ROOT", str(XPL_ROOT / "data" / "MobileArena"))))
+    ap.add_argument("--output-root", type=Path, default=XR1.parents[1] / "data" / "mobile_arena_native")
     ap.add_argument("--config", type=Path, default=XR1 / "configs" / "data" / "mobile_arena_native.yaml")
     ap.add_argument("--max-episodes", type=int, default=None)
     ap.add_argument("--workers", type=int, default=16)
@@ -197,7 +196,7 @@ def main():
     print(f"output: {args.output_root}; workers: {workers}", flush=True)
     with ProcessPoolExecutor(max_workers=workers) as pool:
         futures = [pool.submit(process_one, job, args.stats_only) for job in jobs]
-        with tqdm(total=len(futures), desc="MiVerse HDF5", unit="ep", smoothing=0.05) as bar:
+        with tqdm(total=len(futures), desc="MobileArena HDF5", unit="ep", smoothing=0.05) as bar:
             for future in as_completed(futures):
                 index, n, packed_state, local_sums, local_sums2, local_counts, error = future.result()
                 if error:
@@ -238,9 +237,9 @@ def main():
         args.config.write_text(header + yaml.safe_dump(previous, sort_keys=False), encoding="utf-8")
     else:
         cfg = {
-            "#": "MiVerse raw HDF5 processed with native Xiaomi JSONDataset; HDF5 action group is used verbatim then mapped.",
+            "#": "MobileArena raw HDF5 processed with native Xiaomi JSONDataset; HDF5 action group is used verbatim then mapped.",
             "data": {"type": "BaseDataModule", "params": {"type": "json", "max_steps": "$" + "{trainer.max_steps}", "num_workers": 8, "train_datasets": {
-                "format": "json", "miverse_layout": True, "batch_size": 8, "action_length": ACTION_LENGTH,
+                "format": "json", "mobile_arena_layout": True, "batch_size": 8, "action_length": ACTION_LENGTH,
                 "paths": [str(args.output_root / "data")],
                 "active_action_ranges": [list(r) for r in ACTION_RANGES],
                 "mean": mean.tolist(), "std": std.tolist(), "q01": [q01.tolist()], "q99": [q99.tolist()],

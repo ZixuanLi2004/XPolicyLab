@@ -1,19 +1,10 @@
 # Xiaomi_Robotics_1 for MobileArena
 
-MobileArena was previously named MiVerse. Use `--bench MobileArena` and the
-`mobile_arena` environment profile for new evaluations. Existing checkpoint
-run directories named `MiVerse-...-miverse-...` remain readable. Source modules, scripts and configuration filenames use
-`mobile_arena`.
-Persisted model normalization keys and published dataset subdirectories retain
-their original identifiers for checkpoint/data compatibility. Do not rename
-checkpoint contents.
-
-
 **Original code:** [Xiaomi-Robotics-1](https://github.com/XiaomiRobotics/Xiaomi-Robotics-1)
 
 This adapter vendors `xiaomi_robotics_1/xr1` and supports MobileArena HDF5 conversion,
 training, and batched WebSocket evaluation. It uses the source MobileArena
-`miverse_official_state` recipe: 60-dimensional state, 39 active action dimensions,
+`mobile_arena_official_state` recipe: 60-dimensional state, 39 active action dimensions,
 30-step chunks, and M92UW base-frame end-effector actions (`action_type: ee`).
 Shared deployment conventions are described in the [root README](../../README.md).
 
@@ -40,13 +31,13 @@ marked RGB buffers.
 
 ```bash
 conda activate mibot
-MIVERSE_RAW_ROOT=/path/to/MobileArena/hdf5 \
+MOBILE_ARENA_RAW_ROOT=/path/to/MobileArena/hdf5 \
   bash process_data.sh --workers 16
 ```
 
-Default output: `data/miverse_native`; config:
+Default output: `data/mobile_arena_native`; config:
 `xiaomi_robotics_1/xr1/configs/data/mobile_arena_native.yaml`.
-`MIVERSE_OUTPUT_ROOT` selects another output directory. `process_mobile_arena.sh` is an
+`MOBILE_ARENA_OUTPUT_ROOT` selects another output directory. `process_mobile_arena.sh` is an
 alias. `--max-episodes 2` limits a trial conversion; `--stats-only` recomputes
 statistics from HDF5 without rewriting videos. Always recompute stats for your
 training data; the included config retains the source recipe's statistics.
@@ -70,7 +61,7 @@ are Hydra overrides. Defaults follow the current source recipe: batch size 8 per
 GPU, 60,000 steps, saves every 10,000 steps, peak LR `1e-5`, async training, and
 frequency loss excluding base-velocity slots `17:20`. Override with `BATCH_SIZE`,
 `MAX_STEPS`, `SAVE_INTERVAL`, `MAX_LR`, `NUM_WORKERS`, `RUN_ROOT`, or explicit
-Hydra arguments. `MIVERSE_OUTPUT_ROOT` must match conversion.
+Hydra arguments. `MOBILE_ARENA_OUTPUT_ROOT` must match conversion.
 For a separate dataset config, write it under `xr1/configs/data/` with
 `process_data.sh --config ...`, then select its basename through `DATA_CONFIG_NAME`.
 
@@ -87,7 +78,7 @@ Artifacts are written under
 ## Evaluation
 
 ```bash
-XR1_CKPT_DIR=/path/to/current_miverse_checkpoint \
+XR1_CKPT_DIR=/path/to/current_mobile_arena_checkpoint \
   bash eval.sh MobileArena place_kettle_on_tv_stand MobileArena mobile_arena ee 0 0 1 mibot RoboDojo
 ```
 
@@ -102,7 +93,7 @@ Runtime requires all 11 MobileArena state fields, including `left_base_ee_pose` 
 `right_base_ee_pose`; world-frame EE poses are not substitutes. Each predicted
 step is restored relative to the same observed state. Only `vx, vy, wz` change;
 the other three velocity components retain the observation values. Old
-`miverse_formal`/`miverse_restart` checkpoint layouts are not supported.
+`mobile_arena_formal`/`mobile_arena_restart` checkpoint layouts are not supported.
 
 ## Validation
 

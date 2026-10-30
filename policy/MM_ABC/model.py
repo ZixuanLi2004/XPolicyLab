@@ -1,4 +1,4 @@
-"""MM-ABC adapter using checkpoint metadata for the miverse action layout."""
+"""MM-ABC adapter using checkpoint metadata for the mobile_arena action layout."""
 
 from __future__ import annotations
 
@@ -49,8 +49,8 @@ class Model(ModelTemplate):
         super().__init__()
         self.model_cfg = dict(model_cfg)
         env_cfg_type = _clean(self.model_cfg.get("env_cfg_type"))
-        if env_cfg_type not in (None, "m92uw", "mobile_arena", "miverse"):
-            raise ValueError(f"MM_ABC supports the MiVerse m92uw robot, got {env_cfg_type!r}")
+        if env_cfg_type not in (None, "m92uw", "mobile_arena"):
+            raise ValueError(f"MM_ABC supports the MobileArena m92uw robot, got {env_cfg_type!r}")
         self.action_type = self.model_cfg.get("action_type") or "joint"
         if self.action_type != "joint":
             raise ValueError(f"MM_ABC supports action_type=joint only, got {self.action_type!r}")

@@ -21,7 +21,7 @@ UTILS_DIR="${XPL_ROOT}/utils"
 policy_name="$(basename "${SCRIPT_DIR}")"
 yaml_file="${XPL_ROOT}/policy/${policy_name}/deploy.yml"
 
-if [[ "${bench_name}" == "MobileArena" || "${bench_name}" == "MiVerse" ]]; then
+if [[ "${bench_name}" == "MobileArena" ]]; then
     action_dim=45
 else
     action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")

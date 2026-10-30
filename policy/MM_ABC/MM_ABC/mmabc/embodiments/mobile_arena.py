@@ -64,7 +64,7 @@ def camera_jpeg_buffer(image_bits) -> bytes:
 
     buffer = bytes(_normalize_image_buffer(image_bits))
     if not buffer.startswith(b"\xff\xd8"):
-        raise ValueError("MiVerse camera frame must be a JPEG buffer")
+        raise ValueError("MobileArena camera frame must be a JPEG buffer")
     return buffer if _has_rgb_marker(buffer) else _insert_rgb_marker(buffer)
 
 
@@ -147,7 +147,7 @@ def pack(values: Mapping[str, object], *, allow_missing: bool = False) -> np.nda
         raw = _lookup(values, slot.key)
         if raw is None:
             if not allow_missing:
-                raise KeyError(f"missing MiVerse key {slot.key!r} (or {singular(slot.key)!r})")
+                raise KeyError(f"missing MobileArena key {slot.key!r} (or {singular(slot.key)!r})")
             continue
         arr = np.asarray(raw, dtype=np.float64)
         if arr.shape[-1] != slot.raw_dim:
@@ -160,7 +160,7 @@ def pack(values: Mapping[str, object], *, allow_missing: bool = False) -> np.nda
         raw = _lookup(values, slot.key)
         if raw is None:
             if not allow_missing:
-                raise KeyError(f"missing MiVerse key {slot.key!r} (or {singular(slot.key)!r})")
+                raise KeyError(f"missing MobileArena key {slot.key!r} (or {singular(slot.key)!r})")
             neutral = np.zeros(lead + (slot.raw_dim,), dtype=np.float64)
             if slot.kind == "pose":
                 neutral[..., 3] = 1.0

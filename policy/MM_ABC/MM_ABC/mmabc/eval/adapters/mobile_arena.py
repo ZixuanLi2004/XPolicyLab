@@ -1,4 +1,4 @@
-"""Translate RGB observations and miverse m92uw actions to the canonical layout.
+"""Translate RGB observations and mobile_arena m92uw actions to the canonical layout.
 
 State keys accept singular runtime and plural storage names. Actions return
 one dict per step, with poses in [x, y, z, qw, qx, qy, qz] order."""
@@ -18,7 +18,6 @@ def _leaf(name: str) -> str:
 
 
 @register("mobile_arena")
-@register("miverse")  # Saved deployment configs.
 class MobileArenaAdapter(BenchmarkAdapter):
     view_map = {cam: slot for slot, cam in mobile_arena.CAMERAS.items()}
 

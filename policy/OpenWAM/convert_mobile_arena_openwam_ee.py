@@ -39,7 +39,7 @@ VIDEO_KEYS = tuple(f"observation.images.{c}" for c in CAMERAS)
 FILES_PER_CHUNK = 1000
 
 POLICY_DIR = Path(__file__).resolve().parent
-OUT_DEFAULT = POLICY_DIR / "data" / "miverse_ee"
+OUT_DEFAULT = POLICY_DIR / "data" / "mobile_arena_ee"
 XPL_PARENT = POLICY_DIR.parents[2]
 
 
@@ -47,7 +47,7 @@ def _episode_paths(source: Path):
     tasks = sorted(p for p in source.iterdir() if p.is_dir())
     jobs = []
     for task_index, task_dir in enumerate(tasks):
-        data_dir = task_dir / "miverse" / "data"
+        data_dir = task_dir / "mobile_arena" / "data"
         for local_index, path in enumerate(sorted(data_dir.glob("episode_*.hdf5"))):
             jobs.append((len(jobs), task_index, task_dir.name, local_index, str(path)))
     return jobs, tasks
@@ -235,13 +235,13 @@ def _rebuild_metadata(out: Path, tasks: list[Path], size: int):
     features.update({"observation.state": {"dtype": "float32", "shape": [RAW_DIM]}, "action": {"dtype": "float32", "shape": [RAW_DIM]}, "timestamp": {"dtype": "float32", "shape": [1]}, "frame_index": {"dtype": "int64", "shape": [1]}, "episode_index": {"dtype": "int64", "shape": [1]}, "index": {"dtype": "int64", "shape": [1]}, "task_index": {"dtype": "int64", "shape": [1]}, "source_episode_index": {"dtype": "int64", "shape": [1]}})
     info = {"codebase_version": "v3.0", "robot_type": "m92uw", "total_episodes": len(markers), "total_frames": total, "total_tasks": len(task_text), "fps": FPS, "data_path": "data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet", "video_path": "videos/{video_key}/chunk-{chunk_index:03d}/file-{file_index:03d}.mp4", "features": features, "layout": layout, "total_chunks": 1, "chunks_size": FILES_PER_CHUNK, "total_videos": len(markers)*len(VIDEO_KEYS)}
     (out / "meta/info.json").write_text(json.dumps(info, ensure_ascii=False, indent=2))
-    (out / "meta/embodiment.json").write_text(json.dumps({"name": "m92uw", "action_dim": RAW_DIM, "state_dim": RAW_DIM, "openwam_unified_dim": UNIFY_DIM, "source": "MiVerse HDF5"}, indent=2))
+    (out / "meta/embodiment.json").write_text(json.dumps({"name": "m92uw", "action_dim": RAW_DIM, "state_dim": RAW_DIM, "openwam_unified_dim": UNIFY_DIM, "source": "MobileArena HDF5"}, indent=2))
     return len(markers)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", type=Path, required=True, help="MiVerse raw HDF5 root containing task directories")
+    ap.add_argument("--src", type=Path, required=True, help="MobileArena raw HDF5 root containing task directories")
     ap.add_argument("--out", type=Path, default=OUT_DEFAULT)
     ap.add_argument("--workers", type=int, default=32)
     ap.add_argument("--size", type=int, default=224)

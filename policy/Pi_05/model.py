@@ -30,7 +30,7 @@ _CHECKPOINTS_DIR = _POLICY_DIR / "checkpoints"
 
 # Runtime keys emitted by the 45D MobileArena head.  The two root-velocity keys
 # carry the three learned base controls (vx, vy, wz); unmodeled components are
-# zero-filled by miverse_layout.unpack to preserve their standard 3D shape.
+# zero-filled by mobile_arena_layout.unpack to preserve their standard 3D shape.
 _MOBILE_ARENA_OUTPUT_KEYS = (
     "left_arm_joint_state",
     "right_arm_joint_state",
@@ -116,7 +116,7 @@ class Model(ModelTemplate):
     def __init__(self, model_cfg: dict[str, Any]):
         self.task_name = model_cfg["task_name"]
         self.action_type = model_cfg.get("action_type", "joint")
-        self.mobile_arena_mode = _as_bool(model_cfg.get("mobile_arena", model_cfg.get("miverse", False)))
+        self.mobile_arena_mode = _as_bool(model_cfg.get("mobile_arena", False))
         self.mobile_arena = _load_mobile_arena_layout() if self.mobile_arena_mode else None
         self.robot_action_dim_info = (
             None
@@ -134,9 +134,9 @@ class Model(ModelTemplate):
         self.model = self.policy
 
     def get_model(self, model_cfg: dict[str, Any]):
-        default_config = "pi05_miverse_full" if self.mobile_arena_mode else "pi05_base_aloha_full_sim_arx-x5_seed_0"
+        default_config = "pi05_mobile_arena_full" if self.mobile_arena_mode else "pi05_base_aloha_full_sim_arx-x5_seed_0"
         train_config_name = model_cfg.get("train_config_name", default_config)
-        repo_id = model_cfg.get("repo_id", "miverse_data" if self.mobile_arena_mode else "1118")
+        repo_id = model_cfg.get("repo_id", "mobile_arena_data" if self.mobile_arena_mode else "1118")
         model_root = _resolve_pi05_model_root(model_cfg)
 
         config = _config.get_config(train_config_name)
@@ -261,7 +261,7 @@ def _extract_mobile_arena_image(observation: dict[str, Any], names: tuple[str, .
                     return image[key]
         else:
             return image
-    raise KeyError(f"Could not find MiVerse camera; tried {names}")
+    raise KeyError(f"Could not find MobileArena camera; tried {names}")
 
 
 def encode_mobile_arena_obs(observation: dict[str, Any], mobile_arena) -> dict[str, Any]:
@@ -303,7 +303,7 @@ def unpack_mobile_arena_actions(actions, mobile_arena) -> list[dict[str, np.ndar
     # do not synthesize pose/head keys that are present in the raw HDF5 schema.
     missing = [key for key in _MOBILE_ARENA_OUTPUT_KEYS if key not in keyed]
     if missing:
-        raise KeyError(f"MiVerse layout did not provide output keys: {missing}")
+        raise KeyError(f"MobileArena layout did not provide output keys: {missing}")
     return [
         {key: np.asarray(keyed[key])[step] for key in _MOBILE_ARENA_OUTPUT_KEYS}
         for step in range(actions.shape[0])

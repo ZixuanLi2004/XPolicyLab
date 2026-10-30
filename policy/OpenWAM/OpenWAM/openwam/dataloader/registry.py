@@ -94,7 +94,6 @@ def _register_builtins():
     register_dataset("agibotworld")(MultiAgiBotWorldDataset)
     register_dataset("mixture")(MixtureDataset)
     register_dataset("mobile_arena_ee")(MobileArenaEEDataset)
-    register_dataset("miverse_ee")(MobileArenaEEDataset)  # Saved checkpoint configs.
     register_dataset("robocasa_gr1")(MultiRoboCasaGR1Dataset)
     register_dataset("robocoin")(MultiRobotCOINDataset)
     register_dataset("ebench")(EBenchDataset)

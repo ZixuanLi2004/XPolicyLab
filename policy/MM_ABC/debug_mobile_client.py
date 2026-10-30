@@ -97,7 +97,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="localhost")
     ap.add_argument("--port", type=int, required=True)
-    ap.add_argument("--hdf5", nargs="*", default=None, help="replay these MiVerse episodes")
+    ap.add_argument("--hdf5", nargs="*", default=None, help="replay these MobileArena episodes")
     ap.add_argument("--start", type=int, default=0, help="first frame of each replay")
     ap.add_argument("--eval_episode_num", type=int, default=2)
     ap.add_argument("--episode_step_limit", type=int, default=48)
@@ -164,7 +164,7 @@ def main() -> None:
                 print(f"{key:28s} {np.mean(errors[key]):10.4f} {np.mean(hold[key]):10.4f}")
             m, h = np.mean([np.mean(v) for v in errors.values()]), np.mean([np.mean(v) for v in hold.values()])
             print(f"{'mean':28s} {m:10.4f} {h:10.4f}")
-        print("\n\033[92mMM_ABC CLIENT PASSED: every action chunk matched the MiVerse contract.\033[0m")
+        print("\n\033[92mMM_ABC CLIENT PASSED: every action chunk matched the MobileArena contract.\033[0m")
     finally:
         close = getattr(client, "close", None)
         if callable(close):

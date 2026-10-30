@@ -90,11 +90,11 @@ class Model(ModelTemplate):
         self.model_cfg = dict(model_cfg)
         self.action_type = self.model_cfg["action_type"]
         self.env_cfg_type = self.model_cfg.get("env_cfg_type")
-        self.mobile_arena_mode = _is_true(self.model_cfg.get("mobile_arena", self.model_cfg.get("miverse", True)))
+        self.mobile_arena_mode = _is_true(self.model_cfg.get("mobile_arena", True))
         if self.mobile_arena_mode:
             configured_dim = self.model_cfg.get("action_dim")
             if configured_dim is not None and int(configured_dim) != mobile_arena_joint_layout.MODEL_DIM:
-                raise ValueError(f"FastWAM MiVerse requires action_dim=45, got {configured_dim}.")
+                raise ValueError(f"FastWAM MobileArena requires action_dim=45, got {configured_dim}.")
         self.action_horizon = 1
         self.replan_steps = int(self.model_cfg.get("replan_steps") or 24)
         self.default_instruction = str(

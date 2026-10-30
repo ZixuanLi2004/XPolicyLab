@@ -62,7 +62,7 @@ and places head pose in the reserved block. Its inverse sets `vz`, `wx` and
 
 The converter reads original MobileArena HDF5 episodes from
 `<source>/<task>/<episode-subdir>/episode_*.hdf5`; `episode-subdir` defaults to
-`miverse/data` and is configurable. Episodes must contain the state/action keys from
+`mobile_arena/data` and is configurable. Episodes must contain the state/action keys from
 `mmabc/embodiments/mobile_arena.py`, `instruction`, and encoded camera frames under
 `vision/<camera>/colors`. The supported cameras are `cam_head`,
 `cam_left_wrist` and `cam_right_wrist`.
@@ -70,8 +70,8 @@ The converter reads original MobileArena HDF5 episodes from
 ```bash
 python scripts/convert_mobile_arena.py \
   --src /path/to/trajectories \
-  --episode-subdir miverse/data \
-  --out ../data/miverse_mmabc \
+  --episode-subdir mobile_arena/data \
+  --out ../data/mobile_arena_mmabc \
   --workers 8
 
 # Optional: derive the compatible 80-d profiles after the first conversion.
@@ -169,7 +169,7 @@ Open-loop evaluation reads the training mixture and checkpoint contract:
 
 ```bash
 python scripts/open_loop_eval.py \
-  --checkpoint ../checkpoints/miverse-4b/milestones/step_00060000
+  --checkpoint ../checkpoints/mobile_arena-4b/milestones/step_00060000
 ```
 
 Closed-loop evaluation uses the parent XPolicyLab adapter. The runtime adapter
@@ -192,7 +192,7 @@ python -m pytest tests -q
 ```
 
 Tests that require converted datasets skip when those assets are absent. Optional
-cross-embodiment tests use `MMABC_CORPUS_ROOT` with `miverse_platform`,
+cross-embodiment tests use `MMABC_CORPUS_ROOT` with `mobile_arena_platform`,
 `single_arm`, and `dual_arm` profile directories. A complete training or
 closed-loop run additionally requires the configured assets and runtime
 environment; static checks and unit tests do not validate model performance.

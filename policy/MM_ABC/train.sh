@@ -22,7 +22,7 @@ case "${MODE:-scratch}" in
 esac
 TRAIN_CONFIG=${TRAIN_CONFIG:-${default_config}}
 
-if [[ ( "${bench_name}" != "MobileArena" && "${bench_name}" != "MiVerse" ) || ( "${env_cfg_type}" != "m92uw" && "${env_cfg_type}" != "mobile_arena" && "${env_cfg_type}" != "miverse" ) || "${action_type}" != "joint" ]]; then
+if [[ "${bench_name}" != "MobileArena" || ( "${env_cfg_type}" != "m92uw" && "${env_cfg_type}" != "mobile_arena" ) || "${action_type}" != "joint" ]]; then
     echo "[MM_ABC] supports bench_name=MobileArena env_cfg_type=m92uw|mobile_arena action_type=joint" >&2
     exit 1
 fi

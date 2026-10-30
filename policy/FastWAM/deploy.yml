@@ -22,7 +22,7 @@ seed: null
 checkpoint_path: null
 dataset_stats_path: null
 
-# FastWAM upstream policy hyperparameters.  The task must match the MiVerse
+# FastWAM upstream policy hyperparameters.  The task must match the MobileArena
 # training config so the composed model keeps action/proprio dimensions at 45.
 sim_cfg_name: sim_robotwin.yaml
 sim_task: mobile_arena_uncond_3cam_384_1e-4

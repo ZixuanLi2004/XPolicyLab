@@ -7,7 +7,7 @@ if [[ $# -lt 4 ]]; then
 fi
 POLICY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FASTWAM_DIR="${POLICY_DIR}/FastWAM"
-dataset_id="${FASTWAM_DATASET_ID:-miverse_data}"
+dataset_id="${FASTWAM_DATASET_ID:-mobile_arena_data}"
 dataset_dir="${FASTWAM_DATASET_DIR:-${POLICY_DIR}/../Pi_05/data/${dataset_id}}"
 text_cache_dir="${FASTWAM_DIR}/data/text_embeds_cache/xpolicylab/${dataset_id}"
 

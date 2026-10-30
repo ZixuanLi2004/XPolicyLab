@@ -24,7 +24,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-EMBODIMENT_TAG = "miverse_m92uw_m45"
+EMBODIMENT_TAG = "mobile_arena_m92uw_m45"
 ROBOT_TYPE = "m92uw"
 FPS = 30.0
 
@@ -142,7 +142,7 @@ def _require_or_zero(values: Mapping[str, object], key: str, dim: int,
     raw = _lookup(values, key)
     if raw is None:
         if not allow_missing:
-            raise KeyError(f"missing MiVerse key {key!r} (or {singular(key)!r})")
+            raise KeyError(f"missing MobileArena key {key!r} (or {singular(key)!r})")
         return np.zeros((*lead, dim), dtype=np.float64)
     arr = np.asarray(raw, dtype=np.float64)
     if arr.ndim == 0 or arr.shape[-1] != dim:
@@ -221,7 +221,7 @@ def raw_to_model(values: Mapping[str, object]) -> np.ndarray:
     """Pack raw shape_meta keys back to the unchanged LeRobot order."""
     missing = [key for key in RAW_KEYS if key not in values]
     if missing:
-        raise KeyError(f"missing MiVerse raw components: {missing}")
+        raise KeyError(f"missing MobileArena raw components: {missing}")
     checked = {}
     for key in RAW_KEYS:
         arr = np.asarray(values[key], dtype=np.float32)
@@ -238,7 +238,7 @@ def grouped_to_model(values: Mapping[str, object]) -> np.ndarray:
     """Pack official grouped components back into the 45D model vector."""
     missing = [key for key in GROUPED_KEYS if key not in values]
     if missing:
-        raise KeyError(f"missing MiVerse grouped components: {missing}")
+        raise KeyError(f"missing MobileArena grouped components: {missing}")
     checked = {}
     for key in GROUPED_KEYS:
         arr = np.asarray(values[key], dtype=np.float32)

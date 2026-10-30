@@ -103,7 +103,7 @@ def _lookup(values, key):
 def _field(values, key, width):
     value = _lookup(values, key)
     if value is None:
-        raise KeyError(f"Missing MiVerse EE field {key}")
+        raise KeyError(f"Missing MobileArena EE field {key}")
     arr = np.asarray(value, dtype=np.float32)
     if arr.shape[-1] != width or not np.isfinite(arr).all():
         raise ValueError(f"Invalid {key}: expected finite (...,{width}), got {arr.shape}")

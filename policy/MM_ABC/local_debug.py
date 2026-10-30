@@ -49,7 +49,7 @@ def main() -> None:
         for action in chunk:
             validate_action(action, model.adapter.action_key_style)
     print(f"[batch] 3 envs x {len(batch[0])} actions")
-    print("\nLOCAL DEBUG PASSED: action keys and shapes match the MiVerse contract.")
+    print("\nLOCAL DEBUG PASSED: action keys and shapes match the MobileArena contract.")
 
 if __name__ == "__main__":
     main()

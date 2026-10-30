@@ -43,10 +43,10 @@ class JsonDataset(Dataset):
         self.max_samples = int(params.get("max_steps", 1000)) * self.batch_size * int(os.environ.get("WORLD_SIZE", 1))
         self.mean, self.std = validate_stats(data["mean"], data["std"], self.action_length)
         self.q01, self.q99 = validate_quantiles(data["q01"], data["q99"])
-        self.mobile_arena_layout = bool(data.get("miverse_layout", False))
+        self.mobile_arena_layout = bool(data.get("mobile_arena_layout", False))
         self.active_action_ranges = data.get("active_action_ranges")
         if self.mobile_arena_layout and not self.active_action_ranges:
-            raise ValueError("MiVerse JSON training requires explicit active_action_ranges")
+            raise ValueError("MobileArena JSON training requires explicit active_action_ranges")
         self.files = self._json_files(data["paths"])
         self.samples = self._samples()
 

@@ -35,18 +35,17 @@ yaml_file="${POLICY_DIR}/deploy.yml"
 #   5. checkpoints/<ckpt_name> verbatim (backward compatible)
 CKPT_ROOT="${FASTWAM_CKPT_ROOT:-${POLICY_DIR}/checkpoints}"
 ckpt_setting="${FASTWAM_CKPT_SETTING:-${ckpt_name}}"
+run_dir_name="${bench_name}-${ckpt_name}-${env_cfg_type}-${action_type}-${seed}"
 if [[ -n "${FASTWAM_CKPT_SETTING:-}" ]]; then
     ckpt_dir="${CKPT_ROOT}/${ckpt_setting}"
+elif [[ "${ckpt_name}" == /* ]]; then
+    ckpt_dir="${ckpt_name}"
+elif [[ "${ckpt_name}" == */* ]]; then
+    ckpt_dir="${POLICY_DIR}/${ckpt_name}"
+elif [[ -d "${CKPT_ROOT}/${run_dir_name}" ]]; then
+    ckpt_dir="${CKPT_ROOT}/${run_dir_name}"
 else
-    ckpt_dir="$(python3 - "${XPL_ROOT}" "${POLICY_DIR}" "${CKPT_ROOT}" "${bench_name}" "${ckpt_name}" "${env_cfg_type}" "${action_type}" "${seed}" <<'PYRESOLVE'
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(sys.argv[1]).parent))
-from XPolicyLab.utils.checkpoint_resolver import resolve_checkpoint_root
-config = dict(zip(("bench_name", "ckpt_name", "env_cfg_type", "action_type", "seed"), sys.argv[4:]))
-print(resolve_checkpoint_root(config, sys.argv[3], policy_dir=sys.argv[2], must_exist=False))
-PYRESOLVE
-)"
+    ckpt_dir="${CKPT_ROOT}/${ckpt_setting}"
 fi
 weights_dir="${ckpt_dir}/checkpoints/weights"
 dataset_stats_path="${FASTWAM_DATASET_STATS_PATH:-${ckpt_dir}/dataset_stats.json}"
@@ -76,7 +75,7 @@ echo -e "\033[33m[SERVER] policy_server_host=${policy_server_host} policy_server
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate "${policy_conda_env}"
 
-if grep -Eq "^(mobile_arena|miverse):[[:space:]]*true" "${yaml_file}"; then
+if grep -Eq "^mobile_arena:[[:space:]]*true" "${yaml_file}"; then
     action_dim=45
 else
     action_dim=$(bash "${UTILS_DIR}/get_action_dim.sh" "${BENCH_ROOT}" "${env_cfg_type}")

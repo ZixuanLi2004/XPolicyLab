@@ -24,4 +24,4 @@ camera_layout:
 - observation.images.cam_left_wrist
 - observation.images.cam_right_wrist
 normalize_mode: min-max
-action_mode: miverse_ee
+action_mode: mobile_arena_ee

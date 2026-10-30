@@ -9,8 +9,8 @@ MODEL_DIM = 75
 RAW_DIM = 69
 FPS = 30.0
 ROBOT_TYPE = "m92uw"
-EMBODIMENT_TAG = "miverse_m92uw"
-ENV_CFG_TYPES = frozenset({"mobile_arena", "m92uw", "miverse", "miverse_m92uw", "mobile", "mobile_m92uw"})
+EMBODIMENT_TAG = "mobile_arena_m92uw"
+ENV_CFG_TYPES = frozenset({"m92uw", "mobile_arena", "mobile_arena_m92uw", "mobile", "mobile_m92uw"})
 
 # HDF5 key, width, and whether the value is a [x,y,z,qw,qx,qy,qz] pose.
 KEYS = (
@@ -90,7 +90,7 @@ def decode_camera_frame(image_bits) -> np.ndarray:
 
     buffer = bytes(_normalize_image_buffer(image_bits))
     if not buffer.startswith(b"\xff\xd8"):
-        raise ValueError("MiVerse camera frame must be a JPEG buffer")
+        raise ValueError("MobileArena camera frame must be a JPEG buffer")
     if not _has_rgb_marker(buffer):
         buffer = _insert_rgb_marker(buffer)
     return decode_image_bit(buffer)
